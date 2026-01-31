@@ -27,15 +27,15 @@ export default async function handler(req, res) {
 
         console.log('[AI Proxy] Forwarding to TrollLLM...');
 
-        // Forward to TrollLLM API
-        const response = await fetch('http://api.trollllm.xyz/v1/chat/completions', {
+        // Forward to TrollLLM API (correct URL from docs)
+        const response = await fetch('https://chat.trollllm.xyz/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: model || 'gpt-4o-mini',
+                model: model || 'claude-sonnet-4-5-20250929', // Claude Sonnet 4.5
                 messages,
                 temperature: temperature || 0.7,
                 max_tokens: max_tokens || 2000

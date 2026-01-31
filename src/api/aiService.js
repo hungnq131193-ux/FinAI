@@ -13,7 +13,7 @@ export class AIService {
         this.apiKey = apiKey;
         // Sử dụng Vercel proxy để tránh Mixed Content (HTTP->HTTPS)
         this.baseUrl = '/api/ai'; // Vercel serverless function
-        this.model = 'gpt-4o-mini'; // hoặc model khác có sẵn
+        this.model = 'claude-sonnet-4-5-20250929'; // Claude Sonnet 4.5 từ TrollLLM
     }
 
     /**
