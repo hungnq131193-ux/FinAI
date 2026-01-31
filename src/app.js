@@ -99,19 +99,19 @@ export class App {
         <div class="search-input-wrapper">
           <span class="search-icon">🔍</span>
           <input type="text" class="search-input" id="search-input" 
-                 placeholder="Tìm cổ phiếu, crypto, vàng..." 
+                 placeholder="Tìm cổ phiếu VN, vàng, bạc..." 
                  value="${this.state.searchQuery}"
                  autocomplete="off"
                  dir="ltr"
                  lang="en"
+                 style="direction: ltr !important; text-align: left !important;"
                  spellcheck="false">
           ${this.state.searchQuery ?
         `<button class="search-clear" id="search-clear">✕</button>` : ''}
         </div>
         <div class="search-filters">
           <button class="filter-btn active" data-filter="all">Tất cả</button>
-          <button class="filter-btn" data-filter="stock">Cổ phiếu</button>
-          <button class="filter-btn" data-filter="crypto">Crypto</button>
+          <button class="filter-btn" data-filter="stock">Cổ phiếu VN</button>
           <button class="filter-btn" data-filter="metal">Vàng/Bạc</button>
         </div>
         ${this.state.searchResults.length > 0 ? this.renderSearchResults() : ''}
@@ -491,12 +491,8 @@ export class App {
             // Load VN stocks from CafeF
             const stocks = await this.priceService.getAllVNStockSymbols();
             this.state.filteredAssets = stocks.map(s => ({ ...s, icon: '📈', type: 'stock' }));
-          } else if (filter === 'crypto') {
-            // Load crypto from CoinGecko
-            const cryptos = await this.priceService.getCryptoPrices();
-            this.state.filteredAssets = cryptos.filter(c => c.type === 'crypto');
           } else if (filter === 'metal') {
-            // Load metals from CoinGecko directly
+            // Load metals (Gold, Silver) from CoinGecko
             const metals = await this.priceService.getMetalPrices();
             this.state.filteredAssets = metals;
           }
@@ -1037,14 +1033,21 @@ Chỉ trả về các tài sản đáng MUA nhất, không liệt kê tất cả
     if (!price) return '-';
 
     if (type === 'stock') {
-      return new Intl.NumberFormat('vi-VN').format(Math.round(price * 1000)) + ' đ';
+      // If price < 1000, it's in thousands (from CafeF: 38.75 = 38,750 VND)
+      // If price >= 1000, it's already in VND (from AI: 38750)
+      const priceInVND = price >= 1000 ? price : price * 1000;
+      return new Intl.NumberFormat('vi-VN').format(Math.round(priceInVND)) + ' đ';
     }
 
-    if (type === 'crypto' && price < 1) {
-      return '$' + price.toFixed(4);
+    // For metals (gold/silver in USD)
+    if (type === 'metal') {
+      return '$' + new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(price);
     }
 
-    return '$' + new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(price);
