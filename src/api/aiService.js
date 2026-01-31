@@ -21,47 +21,76 @@ export class AIService {
      */
     async analyzeAsset(asset) {
         const { symbol, name, price, change, type, timeframe, timeframeLabel } = asset;
+        const today = new Date().toLocaleDateString('vi-VN');
 
         console.log(`🤖 AI đang phân tích ${symbol}...`);
 
-        const systemPrompt = `Bạn là chuyên gia phân tích tài chính với 20+ năm kinh nghiệm trên thị trường Việt Nam và quốc tế.
+        const systemPrompt = `Bạn là chuyên gia phân tích tài chính hàng đầu với 20+ năm kinh nghiệm, chuyên về thị trường Việt Nam, crypto và kim loại quý.
 
-QUAN TRỌNG:
-- KHÔNG tìm kiếm internet, KHÔNG nói "đang tìm kiếm"
-- Phân tích TRỰC TIẾP dựa trên dữ liệu được cung cấp
-- Sử dụng kiến thức sẵn có về kỹ thuật phân tích
-- Trả lời bằng tiếng Việt, rõ ràng và chuyên nghiệp
+VAI TRÒ:
+- Phân tích kỹ thuật chuyên sâu (chart patterns, indicators)
+- Phân tích cơ bản (tin tức, sự kiện, yếu tố vĩ mô)
+- Đưa ra khuyến nghị giao dịch cụ thể với Entry/SL/TP
 
-CHỈ trả về JSON hợp lệ, không có text giải thích bên ngoài.`;
+KIẾN THỨC CỦA BẠN:
+- Lịch sử giá, xu hướng dài hạn của các tài sản
+- Các sự kiện kinh tế, chính trị ảnh hưởng đến thị trường
+- Tương quan giữa các thị trường (VN-Index, S&P500, DXY, Fed...)
+- Đặc điểm ngành nghề của từng cổ phiếu Việt Nam
 
-        const userPrompt = `Phân tích kỹ thuật và đưa ra khuyến nghị giao dịch:
+QUY TẮC:
+1. Phân tích chi tiết, chuyên sâu như một báo cáo chuyên nghiệp
+2. Đề cập các yếu tố vĩ mô: lãi suất Fed, tỷ giá USD/VND, giá dầu nếu liên quan
+3. Với cổ phiếu VN: Đề cập ngành, đối thủ cạnh tranh, triển vọng
+4. Với crypto: Đề cập Bitcoin dominance, sentiment thị trường, halving cycle
+5. CHỈ trả về JSON hợp lệ, không có text khác`;
 
-📊 THÔNG TIN TÀI SẢN:
+        const contextInfo = this.getMarketContext(type, symbol);
+
+        const userPrompt = `📅 Ngày phân tích: ${today}
+
+📊 TÀI SẢN CẦN PHÂN TÍCH:
 - Mã: ${symbol}
-- Tên: ${name}
+- Tên đầy đủ: ${name}
 - Loại: ${this.getAssetTypeLabel(type)}
 - Giá hiện tại: ${this.formatPriceForPrompt(price, type)}
-- Biến động 24h: ${change >= 0 ? '+' : ''}${(change || 0).toFixed(2)}%
-- Khung thời gian phân tích: ${timeframeLabel}
+- Biến động gần đây: ${change >= 0 ? '+' : ''}${(change || 0).toFixed(2)}%
+- Khung thời gian: ${timeframeLabel}
 
-📈 YÊU CẦU PHÂN TÍCH:
-1. Đánh giá xu hướng dựa trên biến động giá
-2. Ước tính vùng hỗ trợ/kháng cự dựa trên giá hiện tại
-3. Đưa ra điểm vào lệnh, cắt lỗ, và 3 mức chốt lời cụ thể
-4. Giải thích lý do bằng tiếng Việt
+${contextInfo}
 
-🎯 TRẢ VỀ JSON (CHỈ JSON, KHÔNG TEXT KHÁC):
+🎯 YÊU CẦU PHÂN TÍCH CHI TIẾT:
+
+1. PHÂN TÍCH KỸ THUẬT:
+   - Xác định xu hướng chính (uptrend/downtrend/sideway)
+   - Các mức hỗ trợ và kháng cự quan trọng
+   - Chỉ báo RSI, MACD ước tính dựa trên biến động
+   - Pattern nếu có (Double bottom, Head & Shoulders, Triangle...)
+
+2. TIN TỨC & SỰ KIỆN:
+   - Các yếu tố vĩ mô ảnh hưởng (Fed, lạm phát, USD...)
+   - Tin tức ngành/công ty gần đây nếu biết
+   - Sự kiện chính trị, kinh tế có thể tác động
+   - Sentiment thị trường hiện tại
+
+3. KHUYẾN NGHỊ GIAO DỊCH:
+   - Điểm vào lệnh (Entry) hợp lý
+   - Điểm cắt lỗ (Stop Loss) - giới hạn rủi ro 3-5%
+   - 3 mức chốt lời (TP1, TP2, TP3) theo risk/reward
+   - Tỷ lệ Risk/Reward khuyến nghị
+
+📋 TRẢ VỀ JSON (CHỈ JSON, KHÔNG GIẢI THÍCH THÊM):
 {
-  "action": "BUY" hoặc "SELL" hoặc "HOLD",
-  "entry": <giá vào lệnh - số>,
-  "stopLoss": <giá cắt lỗ - số>,
+  "action": "BUY" | "SELL" | "HOLD",
+  "entry": <giá vào lệnh>,
+  "stopLoss": <giá cắt lỗ>,
   "targets": [<TP1>, <TP2>, <TP3>],
   "riskReward": "1:X",
   "confidence": <1-5>,
   "reasoning": {
-    "technical": "<Phân tích kỹ thuật: RSI ước tính, xu hướng, vùng hỗ trợ/kháng cự>",
-    "news": "<Nhận định chung về thị trường và ngành>",
-    "summary": "<Tóm tắt: Nên mua/bán/giữ và lý do chính>"
+    "technical": "<Phân tích kỹ thuật đầy đủ 3-5 câu: xu hướng, RSI/MACD ước tính, hỗ trợ/kháng cự, pattern>",
+    "news": "<Tin tức & sự kiện ảnh hưởng 3-5 câu: yếu tố vĩ mô, tin ngành, sentiment thị trường>",
+    "summary": "<Tóm tắt 2-3 câu: Khuyến nghị rõ ràng và lý do chính>"
   }
 }`;
 
@@ -74,6 +103,46 @@ CHỈ trả về JSON hợp lệ, không có text giải thích bên ngoài.`;
             console.log('⚠️ Using fallback analysis');
             return this.generateFallbackAnalysis(asset);
         }
+    }
+
+    /**
+     * Get market context based on asset type
+     */
+    getMarketContext(type, symbol) {
+        if (type === 'stock') {
+            const sectorInfo = {
+                'VNM': 'Ngành: Thực phẩm & Đồ uống. Đối thủ: TH True Milk, Nutifood.',
+                'FPT': 'Ngành: Công nghệ thông tin. Mảng: Phần mềm, Telecom, Giáo dục.',
+                'VIC': 'Ngành: Bất động sản. Tập đoàn đa ngành: BĐS, Bán lẻ, Ô tô VinFast.',
+                'VHM': 'Ngành: Bất động sản nhà ở. Thuộc Vingroup.',
+                'VCB': 'Ngành: Ngân hàng. Big4 ngân hàng TMCP Nhà nước.',
+                'TCB': 'Ngành: Ngân hàng tư nhân. Mảnh: Retail, SME.',
+                'HPG': 'Ngành: Thép. Doanh nghiệp thép lớn nhất Việt Nam.',
+                'MSN': 'Ngành: Tiêu dùng đa ngành. Sở hữu WinMart, Techcombank.',
+                'GAS': 'Ngành: Dầu khí. Độc quyền phân phối khí.',
+                'SSI': 'Ngành: Chứng khoán. CTCK lớn nhất Việt Nam.',
+            };
+            return `🏢 THÔNG TIN DOANH NGHIỆP:
+${sectorInfo[symbol] || 'Cổ phiếu niêm yết trên sàn HOSE/HNX.'}
+- Thị trường: Việt Nam (VN-Index)
+- Phiên giao dịch: 9h-11h30, 13h-15h`;
+        }
+
+        if (type === 'crypto') {
+            return `🌐 BỐI CẢNH CRYPTO:
+- Bitcoin halving cycle: Đang trong chu kỳ post-halving 2024
+- Các yếu tố: Quy định SEC, ETF Bitcoin Spot, Fed policy
+- Tương quan với: S&P500, Nasdaq, DXY (nghịch đảo)`;
+        }
+
+        if (type === 'gold' || type === 'metal') {
+            return `🥇 BỐI CẢNH VÀNG/KIM LOẠI:
+- Safe haven asset: Tăng khi bất ổn địa chính trị
+- Tương quan nghịch với: USD, lãi suất thực
+- Yếu tố: Fed rate, lạm phát, căng thẳng quốc tế`;
+        }
+
+        return '';
     }
 
     /**
