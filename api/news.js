@@ -1,5 +1,5 @@
-// Vercel Serverless Function - News Search API
-// Lấy tin tức tài chính realtime cho AI phân tích
+// Vercel Serverless Function - Enhanced News Search API
+// Lấy tin tức tài chính realtime từ nhiều nguồn cho AI phân tích
 
 export default async function handler(req, res) {
     // CORS headers
@@ -22,13 +22,14 @@ export default async function handler(req, res) {
     try {
         console.log(`[News API] Searching news for: ${searchQuery}`);
 
-        // Try multiple free news sources
-        const news = await fetchFinancialNews(searchQuery, type);
+        // Fetch news from multiple sources in parallel
+        const news = await fetchAllNewsSources(searchQuery, type);
 
         return res.status(200).json({
             query: searchQuery,
             articles: news,
             count: news.length,
+            sources: ['Google News', 'VnExpress', 'Market Context'],
             timestamp: new Date().toISOString()
         });
 
@@ -37,42 +38,42 @@ export default async function handler(req, res) {
         return res.status(500).json({
             error: 'Failed to fetch news',
             query: searchQuery,
-            articles: getDefaultNews(searchQuery, type)
+            articles: getComprehensiveMarketContext(searchQuery, type)
         });
     }
 }
 
-async function fetchFinancialNews(query, type) {
-    const articles = [];
+async function fetchAllNewsSources(query, type) {
+    const allArticles = [];
 
-    // Source 1: CafeF (Vietnam stocks)
-    if (type === 'stock') {
-        try {
-            const cafefNews = await fetchCafeFNews(query);
-            articles.push(...cafefNews);
-        } catch (e) {
-            console.log('[News] CafeF failed:', e.message);
-        }
+    // Run all fetches in parallel for speed
+    const [googleNews, vnexpressNews, marketContext] = await Promise.allSettled([
+        fetchGoogleNews(query, type),
+        fetchVnExpressNews(query, type),
+        Promise.resolve(getMarketIndicators(query, type))
+    ]);
+
+    // Collect successful results
+    if (googleNews.status === 'fulfilled') allArticles.push(...googleNews.value);
+    if (vnexpressNews.status === 'fulfilled') allArticles.push(...vnexpressNews.value);
+    if (marketContext.status === 'fulfilled') allArticles.push(...marketContext.value);
+
+    // If no external news, add comprehensive context
+    if (allArticles.length === 0) {
+        return getComprehensiveMarketContext(query, type);
     }
 
-    // Source 2: Google News RSS (general)
-    try {
-        const googleNews = await fetchGoogleNews(query);
-        articles.push(...googleNews);
-    } catch (e) {
-        console.log('[News] Google News failed:', e.message);
-    }
-
-    // If no news found, return context-based insights
-    if (articles.length === 0) {
-        return getDefaultNews(query, type);
-    }
-
-    return articles.slice(0, 5); // Return top 5 articles
+    return allArticles.slice(0, 8); // Return top 8 articles
 }
 
-async function fetchGoogleNews(query) {
-    const encodedQuery = encodeURIComponent(`${query} stock investment`);
+async function fetchGoogleNews(query, type) {
+    const searchTerms = type === 'stock'
+        ? `${query} cổ phiếu VNINDEX`
+        : type === 'metal'
+            ? `${query} giá vàng gold price`
+            : query;
+
+    const encodedQuery = encodeURIComponent(searchTerms);
     const url = `https://news.google.com/rss/search?q=${encodedQuery}&hl=vi&gl=VN&ceid=VN:vi`;
 
     const response = await fetch(url, {
@@ -82,57 +83,67 @@ async function fetchGoogleNews(query) {
     if (!response.ok) throw new Error('Google News error');
 
     const xml = await response.text();
-
-    // Parse RSS XML
     const items = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
 
-    return items.slice(0, 3).map(item => {
+    return items.slice(0, 4).map(item => {
         const title = item.match(/<title>(.*?)<\/title>/)?.[1] || '';
-        const link = item.match(/<link>(.*?)<\/link>/)?.[1] || '';
         const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || '';
 
         return {
             title: decodeHTMLEntities(title),
-            url: link,
             date: pubDate,
-            source: 'Google News'
+            source: 'Google News',
+            importance: 'high'
         };
     });
 }
 
-async function fetchCafeFNews(symbol) {
-    const url = `https://cafef.vn/du-lieu/trang-tim-kiem.chn?keyword=${symbol}`;
+async function fetchVnExpressNews(query, type) {
+    try {
+        const searchTerms = type === 'stock' ? `${query} chứng khoán` : `${query} thị trường`;
+        const url = `https://vnexpress.net/rss/kinh-doanh.rss`;
 
-    // Note: This would need proper HTML parsing, simplified version
-    const response = await fetch(url, {
-        signal: AbortSignal.timeout(8000),
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; FinAI/1.0)'
-        }
-    });
+        const response = await fetch(url, {
+            signal: AbortSignal.timeout(5000)
+        });
 
-    if (!response.ok) throw new Error('CafeF error');
+        if (!response.ok) return [];
 
-    // For now, return placeholder - real implementation would parse HTML
-    return [];
+        const xml = await response.text();
+        const items = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
+
+        // Filter items that mention the query
+        return items
+            .filter(item => item.toLowerCase().includes(query.toLowerCase()))
+            .slice(0, 2)
+            .map(item => {
+                const title = item.match(/<title>(.*?)<\/title>/)?.[1] || '';
+                const description = item.match(/<description>(.*?)<\/description>/)?.[1] || '';
+
+                return {
+                    title: decodeHTMLEntities(title),
+                    summary: decodeHTMLEntities(description).substring(0, 150),
+                    source: 'VnExpress',
+                    importance: 'medium'
+                };
+            });
+    } catch (e) {
+        console.log('[VnExpress] Failed:', e.message);
+        return [];
+    }
 }
 
-function getDefaultNews(query, type) {
+function getMarketIndicators(query, type) {
     const today = new Date().toLocaleDateString('vi-VN');
 
     if (type === 'stock') {
         return [
             {
-                title: `Phân tích kỹ thuật ${query} - Nhận định xu hướng ngắn hạn`,
-                summary: `Cổ phiếu ${query} đang trong vùng tích lũy, cần theo dõi volume xác nhận.`,
+                title: `📊 Phân tích kỹ thuật ${query}`,
+                summary: `RSI, MACD, EMA20/50/200 - Xu hướng và điểm vào/ra dựa trên biến động giá`,
                 date: today,
-                source: 'AI Analysis'
-            },
-            {
-                title: `Báo cáo KQKD quý gần nhất của ${query}`,
-                summary: 'Cần kiểm tra lịch công bố KQKD và các chỉ số tài chính cơ bản.',
-                date: today,
-                source: 'AI Analysis'
+                source: 'Technical Analysis',
+                importance: 'critical'
             }
         ];
     }
@@ -140,26 +151,84 @@ function getDefaultNews(query, type) {
     if (type === 'metal' || type === 'gold') {
         return [
             {
-                title: 'Giá vàng thế giới biến động theo Fed và lạm phát',
-                summary: 'Vàng chịu ảnh hưởng từ chính sách Fed, lạm phát Mỹ, và căng thẳng địa chính trị.',
+                title: '📈 Chỉ báo vĩ mô ảnh hưởng giá vàng/bạc',
+                summary: 'Fed Funds Rate, CPI lạm phát, DXY Index, US 10Y Yield - Các yếu tố quyết định xu hướng',
                 date: today,
-                source: 'Market Context'
+                source: 'Macro Analysis',
+                importance: 'critical'
+            }
+        ];
+    }
+
+    return [];
+}
+
+function getComprehensiveMarketContext(query, type) {
+    const today = new Date().toLocaleDateString('vi-VN');
+    const hour = new Date().getHours();
+    const marketOpen = hour >= 9 && hour < 15;
+
+    if (type === 'stock') {
+        return [
+            {
+                title: `📊 Phân tích tổng hợp ${query}`,
+                summary: `Kết hợp phân tích kỹ thuật (RSI, MACD, Bollinger Bands) và cơ bản (P/E, ROE, tăng trưởng doanh thu). Xem xét xu hướng ngành và vị thế cạnh tranh.`,
+                date: today,
+                source: 'Comprehensive Analysis',
+                importance: 'critical'
             },
             {
-                title: 'Xu hướng USD/DXY ảnh hưởng giá kim loại quý',
-                summary: 'USD mạnh thường tạo áp lực giảm lên giá vàng/bạc và ngược lại.',
+                title: `📈 Xu hướng thị trường VN-Index`,
+                summary: marketOpen
+                    ? 'Thị trường đang trong phiên giao dịch. Theo dõi volume, thanh khoản, và nhóm bluechip dẫn dắt.'
+                    : 'Ngoài giờ giao dịch. Cần đánh giá xu hướng từ phiên trước và tin tức overnight.',
                 date: today,
-                source: 'Market Context'
+                source: 'Market Context',
+                importance: 'high'
+            },
+            {
+                title: '🌍 Yếu tố vĩ mô ảnh hưởng TTCK Việt Nam',
+                summary: 'Tỷ giá USD/VND, lãi suất NHNN, dòng vốn ngoại, chính sách Fed và triển vọng kinh tế toàn cầu.',
+                date: today,
+                source: 'Macro Context',
+                importance: 'medium'
+            }
+        ];
+    }
+
+    if (type === 'metal' || type === 'gold') {
+        return [
+            {
+                title: '🥇 Phân tích giá vàng/bạc thế giới',
+                summary: 'Giá XAU/USD và XAG/USD phụ thuộc: (1) Chính sách Fed - lãi suất, (2) Lạm phát CPI Mỹ, (3) Chỉ số DXY (USD), (4) Căng thẳng địa chính trị.',
+                date: today,
+                source: 'Gold Analysis',
+                importance: 'critical'
+            },
+            {
+                title: '📊 Chỉ báo kỹ thuật kim loại quý',
+                summary: 'Các mức Fibonacci quan trọng, vùng hỗ trợ/kháng cự major, RSI overbought/oversold, và pattern chart dài hạn.',
+                date: today,
+                source: 'Technical',
+                importance: 'high'
+            },
+            {
+                title: '🏦 Yếu tố cung-cầu vật chất',
+                summary: 'Nhu cầu từ NHTW (đặc biệt Trung Quốc, Ấn Độ), sản lượng khai thác, và xu hướng tích trữ tài sản an toàn.',
+                date: today,
+                source: 'Fundamental',
+                importance: 'medium'
             }
         ];
     }
 
     return [
         {
-            title: `Tin tức liên quan đến ${query}`,
-            summary: 'Đang tìm kiếm tin tức và phân tích mới nhất từ các nguồn tài chính.',
+            title: `💼 Phân tích thị trường: ${query}`,
+            summary: 'Kết hợp phân tích kỹ thuật, tin tức và yếu tố vĩ mô để đưa ra khuyến nghị đầu tư.',
             date: today,
-            source: 'FinAI'
+            source: 'FinAI Analysis',
+            importance: 'high'
         }
     ];
 }
@@ -171,5 +240,7 @@ function decodeHTMLEntities(text) {
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
-        .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1');
+        .replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1')
+        .replace(/<[^>]*>/g, ''); // Remove HTML tags
 }
+

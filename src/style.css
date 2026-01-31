@@ -1128,39 +1128,33 @@ body {
   pointer-events: none;
 }
 
-.search-input {
+/* Search Textarea - Using textarea instead of input for reliable LTR */
+.search-textarea {
   width: 100%;
-  padding: var(--spacing-md);
-  padding-left: 48px;
-  padding-right: 40px;
+  height: 46px;
+  min-height: 46px;
+  max-height: 46px;
+  padding: 12px 40px 12px 48px;
   background: var(--bg-tertiary);
   border: 2px solid var(--glass-border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
   font-size: var(--font-size-base);
   font-family: var(--font-family);
+  line-height: 22px;
   transition: all var(--transition-fast);
-  /* Simple LTR - removed unicode-bidi which was causing issues */
-  direction: ltr !important;
-  text-align: left !important;
+  resize: none;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-/* Simple direction fix - no unicode-bidi */
-input.search-input,
-input#search-input,
-.search-bar input[type="text"],
-#search-input {
-  direction: ltr !important;
-  text-align: left !important;
-}
-
-.search-input:focus {
+.search-textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
 }
 
-.search-input::placeholder {
+.search-textarea::placeholder {
   color: var(--text-tertiary);
 }
 

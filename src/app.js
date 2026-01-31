@@ -98,17 +98,16 @@ export class App {
       <div class="search-bar">
         <div class="search-input-wrapper">
           <span class="search-icon">🔍</span>
-          <input type="text" class="search-input" id="search-input" 
-                 placeholder="Tìm cổ phiếu VN, vàng, bạc..." 
-                 value="${this.state.searchQuery}"
-                 autocomplete="off"
-                 autocapitalize="off"
-                 autocorrect="off"
-                 dir="ltr"
-                 lang="en"
-                 inputmode="text"
-                 style="direction: ltr !important; text-align: left !important;"
-                 spellcheck="false">
+          <textarea 
+            class="search-textarea" 
+            id="search-input"
+            rows="1"
+            placeholder="Tìm cổ phiếu VN, vàng, bạc..."
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+          >${this.state.searchQuery}</textarea>
           ${this.state.searchQuery ?
         `<button class="search-clear" id="search-clear">✕</button>` : ''}
         </div>
