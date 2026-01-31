@@ -52,6 +52,7 @@ QUY TẮC:
 5. CHỈ trả về JSON hợp lệ, không có text khác`;
 
         const contextInfo = this.getMarketContext(type, symbol);
+        const timeframeStrategy = this.getTimeframeGuidance(timeframe);
 
         const userPrompt = `📅 Ngày phân tích: ${today}
 ⏰ Thời gian: ${new Date().toLocaleTimeString('vi-VN')} (GMT+7)
@@ -62,7 +63,9 @@ QUY TẮC:
 - Loại: ${this.getAssetTypeLabel(type)}
 - Giá hiện tại: ${this.formatPriceForPrompt(price, type)} [REALTIME]
 - Biến động 24h: ${change >= 0 ? '+' : ''}${(change || 0).toFixed(2)}%
-- Khung thời gian phân tích: ${timeframeLabel}
+
+🕐 KHUNG THỜI GIAN: ${timeframeLabel}
+${timeframeStrategy}
 
 ${contextInfo}
 
@@ -150,6 +153,50 @@ ${sectorInfo[symbol] || 'Cổ phiếu niêm yết trên sàn HOSE/HNX.'}
         }
 
         return '';
+    }
+
+    /**
+     * Get timeframe-specific analysis guidance
+     */
+    getTimeframeGuidance(timeframe) {
+        const guides = {
+            'short': `⚡ PHÂN TÍCH NGẮN HẠN (1-3 ngày):
+📊 CHIẾN LƯỢC: Day Trading / Scalping
+- TẬP TRUNG: Momentum ngắn hạn, biến động trong phiên
+- CHỈ BÁO ƯU TIÊN: RSI 14, MACD (5,10,5), Bollinger Bands 2h/4h
+- VOLUME: Quan trọng NHẤT - xác nhận breakout/breakdown
+- PATTERN: Nến đảo chiều (Hammer, Engulfing, Doji), Support/Resistance ngắn hạn
+- STOP LOSS: Chặt 1.5-2.5% - Ra lệnh nhanh khi sai
+- TARGET: TP1 gần (2-3%), chốt nhanh, không tham
+- RỦI RO: Cao - cần theo dõi liên tục, tin tức intraday quan trọng
+- TIN TỨC: Chú ý lịch KQKD, tin đột xuất trong ngày`,
+
+            'medium': `📈 PHÂN TÍCH TRUNG HẠN (1-4 tuần):
+📊 CHIẾN LƯỢC: Swing Trading
+- TẬP TRUNG: Xu hướng chính, sóng Elliott, Fibonacci Retracement
+- CHỈ BÁO ƯU TIÊN: EMA 20/50, MACD Daily, RSI Divergence
+- VOLUME: Xác nhận xu hướng, tích lũy/phân phối
+- PATTERN: Head & Shoulders, Rising/Falling Wedge, Cup & Handle
+- STOP LOSS: Hợp lý 3-5% - Dưới swing low gần nhất
+- TARGET: TP1 (5-7%), TP2 (10-12%), TP3 (15%+)
+- RỦI RO: Trung bình - Cho phép điều chỉnh nhỏ
+- TIN TỨC: KQKD quý, sector rotation, policy changes, Fed meetings`,
+
+            'long': `🎯 PHÂN TÍCH DÀI HẠN (3-12 tháng):
+📊 CHIẾN LƯỢC: Position Trading / Đầu tư giá trị
+- TẬP TRUNG: Phân tích CƠ BẢN là chính, kỹ thuật hỗ trợ
+- CƠ BẢN: P/E, P/B, ROE, ROA, tăng trưởng doanh thu/lợi nhuận
+- CHỈ BÁO KỸ THUẬT: EMA 50/200, Golden/Death Cross, Monthly charts
+- VOLUME: Profile tích lũy dài hạn
+- PATTERN: Major trend lines, All-time highs/lows, Long-term channels
+- STOP LOSS: Rộng 10-15% - Cho phép biến động lớn
+- TARGET: 20-50%+ theo chu kỳ kinh tế
+- RỦI RO: Thấp nếu đúng doanh nghiệp - Trung bình hóa giá (DCA)
+- QUAN TRỌNG: Chất lượng doanh nghiệp, vị thế cạnh tranh, ban lãnh đạo, outlook ngành
+- TIN TỨC: Chính sách vĩ mô, chu kỳ ngành, IPO, M&A, thay đổi luật`
+        };
+
+        return guides[timeframe] || guides['medium'];
     }
 
     /**
