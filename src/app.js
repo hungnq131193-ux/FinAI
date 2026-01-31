@@ -460,50 +460,53 @@ export class App {
       this.updateSearchBar();
     });
 
-    // Search filters - clicking loads assets by type
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
+    // Search filters - use event delegation for stable event handling
+    // This ensures events work even after DOM re-renders
+    document.addEventListener('click', async (e) => {
+      const filterBtn = e.target.closest('.filter-btn');
+      if (!filterBtn) return;
 
-        const filter = e.target.dataset.filter;
-        this.state.activeFilter = filter;
+      // Update active state
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      filterBtn.classList.add('active');
 
-        // If searching, filter search results
-        if (this.state.searchQuery) {
-          this.handleSearch(this.state.searchQuery, filter);
-          return;
-        }
+      const filter = filterBtn.dataset.filter;
+      this.state.activeFilter = filter;
 
-        // Otherwise, load all assets of this type
-        if (filter === 'all') {
-          this.state.filteredAssets = [];
-          this.updateAssetsGrid();
-          return;
-        }
+      // If searching, filter search results
+      if (this.state.searchQuery) {
+        this.handleSearch(this.state.searchQuery, filter);
+        return;
+      }
 
-        // Load assets by type
-        this.state.isLoading = true;
+      // Show empty hint for "all" filter
+      if (filter === 'all') {
+        this.state.filteredAssets = [];
         this.updateAssetsGrid();
+        return;
+      }
 
-        try {
-          if (filter === 'stock') {
-            // Load VN stocks from CafeF
-            const stocks = await this.priceService.getAllVNStockSymbols();
-            this.state.filteredAssets = stocks.map(s => ({ ...s, icon: '📈', type: 'stock' }));
-          } else if (filter === 'metal') {
-            // Load metals (Gold, Silver) from CoinGecko
-            const metals = await this.priceService.getMetalPrices();
-            this.state.filteredAssets = metals;
-          }
-        } catch (e) {
-          console.error('Error loading assets:', e);
-          this.state.filteredAssets = [];
+      // Load assets by type
+      this.state.isLoading = true;
+      this.updateAssetsGrid();
+
+      try {
+        if (filter === 'stock') {
+          // Load VN stocks from CafeF
+          const stocks = await this.priceService.getAllVNStockSymbols();
+          this.state.filteredAssets = stocks.map(s => ({ ...s, icon: '📈', type: 'stock' }));
+        } else if (filter === 'metal') {
+          // Load metals (Gold, Silver) from CoinGecko
+          const metals = await this.priceService.getMetalPrices();
+          this.state.filteredAssets = metals;
         }
+      } catch (err) {
+        console.error('Error loading assets:', err);
+        this.state.filteredAssets = [];
+      }
 
-        this.state.isLoading = false;
-        this.updateAssetsGrid();
-      });
+      this.state.isLoading = false;
+      this.updateAssetsGrid();
     });
 
     // Timeframe tabs
