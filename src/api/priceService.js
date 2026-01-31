@@ -241,9 +241,45 @@ export class PriceService {
     }
 
     /**
-     * Get multiple stock prices
+     * Get multiple stock prices - uses batch API for efficiency
      */
     async getMultipleStockPrices(symbols, onProgress = null) {
+        // Try batch API first (production)
+        if (this.isProduction) {
+            try {
+                console.log('📡 Fetching batch stock prices via proxy...');
+                const symbolList = symbols.join(',');
+                const response = await fetch(
+                    `${this.stocksProxyUrl}?source=batch&symbols=${symbolList}`,
+                    { signal: AbortSignal.timeout(30000) }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.stocks && data.stocks.length > 0) {
+                        console.log(`✅ Batch loaded ${data.stocks.length} stocks (${data.source})`);
+                        return data.stocks.map(s => ({
+                            symbol: s.symbol,
+                            name: this.getVNStockName(s.symbol),
+                            icon: '📈',
+                            type: 'stock',
+                            price: s.price,
+                            change: s.change,
+                            high: s.high,
+                            low: s.low,
+                            open: s.open,
+                            volume: s.volume,
+                            isRealtime: true,
+                            source: data.source
+                        }));
+                    }
+                }
+            } catch (e) {
+                console.error('Batch API error:', e.message);
+            }
+        }
+
+        // Fallback: Individual fetching
         const results = [];
         let completed = 0;
 
