@@ -16,6 +16,39 @@ export class PriceService {
         this.isProduction = window.location.hostname.includes('vercel.app') ||
             !window.location.hostname.includes('localhost');
         this.stocksProxyUrl = '/api/stocks'; // Vercel serverless function
+        this.cryptoProxyUrl = '/api/crypto'; // Crypto/Gold prices from CoinGecko
+    }
+
+    /**
+     * Get real-time crypto prices from CoinGecko via proxy
+     */
+    async getCryptoPrices() {
+        const cacheKey = 'crypto_prices';
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        if (this.isProduction) {
+            try {
+                console.log('📡 Fetching crypto prices via CoinGecko proxy...');
+                const response = await fetch(`${this.cryptoProxyUrl}?type=all`, {
+                    signal: AbortSignal.timeout(15000)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.assets && Array.isArray(data.assets)) {
+                        console.log(`✅ Got ${data.assets.length} crypto/gold prices from CoinGecko`);
+                        this.setCache(cacheKey, data.assets, 60000); // Cache 1 min
+                        return data.assets;
+                    }
+                }
+            } catch (e) {
+                console.error('CoinGecko proxy error:', e.message);
+            }
+        }
+
+        // Fallback to hardcoded prices
+        return this.getDefaultCryptoAssets();
     }
 
     /**
