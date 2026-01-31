@@ -89,10 +89,10 @@ export default async function handler(req, res) {
 
             // If requesting gold too
             if (type === 'all') {
-                // Get gold price from metals API
+                // Get gold price from metals API (PAX Gold, Tether Gold, Silver tokens)
                 try {
                     const goldResponse = await fetch(
-                        'https://api.coingecko.com/api/v3/simple/price?ids=pax-gold,tether-gold&vs_currencies=usd&include_24hr_change=true',
+                        'https://api.coingecko.com/api/v3/simple/price?ids=pax-gold,tether-gold,silver-token&vs_currencies=usd&include_24hr_change=true',
                         { signal: AbortSignal.timeout(10000) }
                     );
 
@@ -104,12 +104,27 @@ export default async function handler(req, res) {
                             cryptos.push({
                                 id: 'gold',
                                 symbol: 'GOLD',
-                                name: 'Vàng (XAU/USD ước tính)',
+                                name: 'Vàng (XAU/USD)',
                                 icon: '🥇',
                                 type: 'metal',
                                 price: goldData['pax-gold'].usd,
                                 change: goldData['pax-gold'].usd_24h_change || 0,
                                 source: 'CoinGecko/PAXGold',
+                                isRealtime: true
+                            });
+                        }
+
+                        // Tether Gold
+                        if (goldData['tether-gold']) {
+                            cryptos.push({
+                                id: 'xaut',
+                                symbol: 'XAUT',
+                                name: 'Tether Gold',
+                                icon: '🥇',
+                                type: 'metal',
+                                price: goldData['tether-gold'].usd,
+                                change: goldData['tether-gold'].usd_24h_change || 0,
+                                source: 'CoinGecko/XAUT',
                                 isRealtime: true
                             });
                         }

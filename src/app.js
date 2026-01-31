@@ -101,7 +101,10 @@ export class App {
           <input type="text" class="search-input" id="search-input" 
                  placeholder="Tìm cổ phiếu, crypto, vàng..." 
                  value="${this.state.searchQuery}"
-                 autocomplete="off">
+                 autocomplete="off"
+                 dir="ltr"
+                 lang="en"
+                 spellcheck="false">
           ${this.state.searchQuery ?
         `<button class="search-clear" id="search-clear">✕</button>` : ''}
         </div>
@@ -493,9 +496,9 @@ export class App {
             const cryptos = await this.priceService.getCryptoPrices();
             this.state.filteredAssets = cryptos.filter(c => c.type === 'crypto');
           } else if (filter === 'metal') {
-            // Load metals from CoinGecko
-            const assets = await this.priceService.getCryptoPrices();
-            this.state.filteredAssets = assets.filter(a => a.type === 'metal');
+            // Load metals from CoinGecko directly
+            const metals = await this.priceService.getMetalPrices();
+            this.state.filteredAssets = metals;
           }
         } catch (e) {
           console.error('Error loading assets:', e);

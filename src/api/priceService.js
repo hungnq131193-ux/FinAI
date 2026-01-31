@@ -52,6 +52,41 @@ export class PriceService {
     }
 
     /**
+     * Get real-time metal prices (Gold, Silver) from CoinGecko via proxy
+     */
+    async getMetalPrices() {
+        const cacheKey = 'metal_prices';
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        if (this.isProduction) {
+            try {
+                console.log('📡 Fetching metal prices via CoinGecko proxy...');
+                const response = await fetch(`${this.cryptoProxyUrl}?type=metals`, {
+                    signal: AbortSignal.timeout(15000)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.assets && Array.isArray(data.assets)) {
+                        console.log(`✅ Got ${data.assets.length} metal prices from CoinGecko`);
+                        this.setCache(cacheKey, data.assets, 60000); // Cache 1 min
+                        return data.assets;
+                    }
+                }
+            } catch (e) {
+                console.error('Metal prices proxy error:', e.message);
+            }
+        }
+
+        // Fallback hardcoded gold/silver
+        return [
+            { symbol: 'GOLD', name: 'Vàng (XAU/USD)', icon: '🥇', type: 'metal', price: 2050, change: 0.5 },
+            { symbol: 'SILVER', name: 'Bạc (XAG/USD)', icon: '🥈', type: 'metal', price: 23.5, change: 0.3 }
+        ];
+    }
+
+    /**
      * Get ALL Vietnam stock symbols from SSI/HOSE
      */
     async getAllVNStockSymbols() {
