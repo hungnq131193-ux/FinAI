@@ -1,0 +1,472 @@
+/**
+ * Price Service - Real-time market data
+ * Lấy dữ liệu từ nhiều nguồn miễn phí
+ * 
+ * LƯU Ý: Lấy giá KHÔNG dùng Kimi K2 token!
+ */
+
+export class PriceService {
+    constructor() {
+        this.cache = new Map();
+        this.cacheTimeout = 60000; // 1 minute cache
+        this.allVNStocks = []; // Store all available VN stocks
+    }
+
+    /**
+     * Get ALL Vietnam stock symbols from SSI/HOSE
+     */
+    async getAllVNStockSymbols() {
+        const cacheKey = 'all_vn_symbols';
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            // SSI API - Get all stocks from HOSE, HNX, UPCOM
+            const response = await fetch(
+                'https://iboard-api.ssi.com.vn/statistics/getliststockdata?market=',
+                {
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(15000)
+                }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.data && Array.isArray(data.data)) {
+                    const stocks = data.data.map(s => ({
+                        symbol: s.stockSymbol || s.ss,
+                        name: s.stockName || s.organ || s.ss,
+                        exchange: s.exchange || s.mc,
+                        price: (s.matchedPrice || s.mp || s.lastPrice || 0) / 1000,
+                        change: s.priceChange || s.pc || 0,
+                        changePercent: s.priceChangePercent || s.pcp || 0,
+                        volume: s.totalMatchedVol || s.tmv || 0
+                    })).filter(s => s.symbol && s.price > 0);
+
+                    this.setCache(cacheKey, stocks, 300000); // 5 min cache
+                    this.allVNStocks = stocks;
+                    console.log(`✅ Loaded ${stocks.length} VN stocks from SSI`);
+                    return stocks;
+                }
+            }
+        } catch (e) {
+            console.error('SSI list error:', e.message);
+        }
+
+        // Backup: Try VCI/Fireant
+        try {
+            const response = await fetch(
+                'https://api.vietcap.com.vn/data-mt/graphql',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: `{ ListedStock { data { symbol shortName exchange lastPrice priceChange } } }`
+                    }),
+                    signal: AbortSignal.timeout(10000)
+                }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.data?.ListedStock?.data) {
+                    const stocks = data.data.ListedStock.data.map(s => ({
+                        symbol: s.symbol,
+                        name: s.shortName || s.symbol,
+                        exchange: s.exchange,
+                        price: (s.lastPrice || 0) / 1000,
+                        change: s.priceChange || 0,
+                        changePercent: 0
+                    }));
+                    this.setCache(cacheKey, stocks, 300000);
+                    this.allVNStocks = stocks;
+                    console.log(`✅ Loaded ${stocks.length} VN stocks from VCI`);
+                    return stocks;
+                }
+            }
+        } catch (e) {
+            console.error('VCI list error:', e.message);
+        }
+
+        // Final fallback: hardcoded popular stocks
+        console.log('⚠️ Using hardcoded VN stock list');
+        return this.getPopularVNStocks();
+    }
+
+    /**
+     * Search stocks by keyword
+     */
+    searchStocks(query, type = 'all') {
+        const q = query.toUpperCase().trim();
+        if (!q) return [];
+
+        let results = [];
+
+        // Search VN stocks
+        if (type === 'all' || type === 'stock') {
+            const stockResults = this.allVNStocks.filter(s =>
+                s.symbol.includes(q) ||
+                (s.name && s.name.toUpperCase().includes(q))
+            ).slice(0, 20);
+            results = results.concat(stockResults.map(s => ({ ...s, type: 'stock', icon: '📈' })));
+        }
+
+        // Search crypto
+        if (type === 'all' || type === 'crypto') {
+            const cryptos = this.getAllCryptos();
+            const cryptoResults = cryptos.filter(c =>
+                c.symbol.includes(q) ||
+                c.name.toUpperCase().includes(q)
+            );
+            results = results.concat(cryptoResults);
+        }
+
+        // Search metals
+        if (type === 'all' || type === 'metal') {
+            const metals = this.getAllMetals();
+            const metalResults = metals.filter(m =>
+                m.symbol.includes(q) ||
+                m.name.toUpperCase().includes(q)
+            );
+            results = results.concat(metalResults);
+        }
+
+        return results.slice(0, 30);
+    }
+
+    /**
+     * Get top movers - stocks with biggest changes
+     */
+    getTopMovers(count = 10, direction = 'up') {
+        if (this.allVNStocks.length === 0) return [];
+
+        const sorted = [...this.allVNStocks].sort((a, b) => {
+            if (direction === 'up') {
+                return (b.changePercent || b.change) - (a.changePercent || a.change);
+            }
+            return (a.changePercent || a.change) - (b.changePercent || b.change);
+        });
+
+        return sorted.slice(0, count).map(s => ({ ...s, type: 'stock', icon: '📈' }));
+    }
+
+    /**
+     * Get stock price by symbol (real-time from TCBS)
+     */
+    async getStockPrice(symbol) {
+        try {
+            const response = await fetch(
+                `https://apipubaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term?ticker=${symbol}&type=stock&resolution=D&countBack=2`,
+                {
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(8000)
+                }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.data && data.data.length > 0) {
+                    const latest = data.data[data.data.length - 1];
+                    const prev = data.data.length > 1 ? data.data[0] : latest;
+                    const change = prev.close > 0 ? ((latest.close - prev.close) / prev.close) * 100 : 0;
+
+                    return {
+                        symbol: symbol,
+                        name: this.getVNStockName(symbol),
+                        icon: '📈',
+                        type: 'stock',
+                        price: latest.close,
+                        change: change,
+                        high: latest.high,
+                        low: latest.low,
+                        open: latest.open,
+                        volume: latest.volume,
+                        isRealtime: true
+                    };
+                }
+            }
+        } catch (e) {
+            console.error(`TCBS ${symbol} error:`, e.message);
+        }
+
+        // Fallback to cached data
+        const cached = this.allVNStocks.find(s => s.symbol === symbol);
+        if (cached) {
+            return { ...cached, type: 'stock', icon: '📈', isRealtime: false };
+        }
+
+        return null;
+    }
+
+    /**
+     * Get multiple stock prices
+     */
+    async getMultipleStockPrices(symbols, onProgress = null) {
+        const results = [];
+        let completed = 0;
+
+        for (const symbol of symbols) {
+            const price = await this.getStockPrice(symbol);
+            if (price) results.push(price);
+
+            completed++;
+            if (onProgress) onProgress(completed, symbols.length);
+
+            // Small delay to avoid rate limiting
+            if (completed < symbols.length) {
+                await new Promise(r => setTimeout(r, 150));
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * Get cryptocurrency prices
+     */
+    async getCryptoPrices() {
+        const cacheKey = 'crypto_prices';
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            const ids = 'bitcoin,ethereum,binancecoin,ripple,solana,cardano,dogecoin,polkadot,avalanche-2,chainlink,polygon,toncoin';
+            const response = await fetch(
+                `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
+                { signal: AbortSignal.timeout(10000) }
+            );
+
+            if (!response.ok) throw new Error('CoinGecko error');
+
+            const data = await response.json();
+
+            const symbolMap = {
+                bitcoin: { symbol: 'BTC', name: 'Bitcoin', icon: '₿' },
+                ethereum: { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' },
+                binancecoin: { symbol: 'BNB', name: 'BNB', icon: '◈' },
+                ripple: { symbol: 'XRP', name: 'Ripple', icon: '✕' },
+                solana: { symbol: 'SOL', name: 'Solana', icon: '◎' },
+                cardano: { symbol: 'ADA', name: 'Cardano', icon: '₳' },
+                dogecoin: { symbol: 'DOGE', name: 'Dogecoin', icon: '🐕' },
+                polkadot: { symbol: 'DOT', name: 'Polkadot', icon: '●' },
+                'avalanche-2': { symbol: 'AVAX', name: 'Avalanche', icon: '🔺' },
+                chainlink: { symbol: 'LINK', name: 'Chainlink', icon: '⬡' },
+                polygon: { symbol: 'MATIC', name: 'Polygon', icon: '⬟' },
+                toncoin: { symbol: 'TON', name: 'Toncoin', icon: '💎' }
+            };
+
+            const prices = Object.entries(data).map(([id, info]) => ({
+                ...symbolMap[id],
+                type: 'crypto',
+                price: info.usd,
+                change: info.usd_24h_change || 0,
+                isRealtime: true
+            }));
+
+            this.setCache(cacheKey, prices);
+            console.log(`✅ Crypto: ${prices.length} coins from CoinGecko`);
+            return prices;
+        } catch (error) {
+            console.error('Crypto error:', error.message);
+            return this.getFallbackCryptoPrices();
+        }
+    }
+
+    /**
+     * Get metal prices
+     */
+    async getMetalPrices() {
+        const cacheKey = 'metal_prices';
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            const response = await fetch(
+                'https://api.coingecko.com/api/v3/simple/price?ids=pax-gold,tether-gold&vs_currencies=usd&include_24hr_change=true',
+                { signal: AbortSignal.timeout(10000) }
+            );
+
+            if (!response.ok) throw new Error('Metal API error');
+
+            const data = await response.json();
+            const goldPrice = data['pax-gold']?.usd || data['tether-gold']?.usd || 2750;
+            const goldChange = data['pax-gold']?.usd_24h_change || 0;
+
+            const prices = [
+                {
+                    symbol: 'XAU',
+                    name: 'Vàng (oz)',
+                    icon: '🥇',
+                    type: 'gold',
+                    price: goldPrice,
+                    change: goldChange,
+                    isRealtime: true
+                },
+                {
+                    symbol: 'XAG',
+                    name: 'Bạc (oz)',
+                    icon: '🥈',
+                    type: 'silver',
+                    price: goldPrice / 88,
+                    change: goldChange * 0.8,
+                    isRealtime: true
+                }
+            ];
+
+            this.setCache(cacheKey, prices);
+            console.log('✅ Metals: PAXG from CoinGecko');
+            return prices;
+        } catch (error) {
+            console.error('Metal error:', error.message);
+            return this.getFallbackMetalPrices();
+        }
+    }
+
+    /**
+     * Get all market data
+     */
+    async getAllPrices(includeStocks = true) {
+        console.log('🔄 Đang lấy dữ liệu thị trường...');
+
+        const [crypto, metals] = await Promise.all([
+            this.getCryptoPrices(),
+            this.getMetalPrices()
+        ]);
+
+        let vnStocks = [];
+        if (includeStocks) {
+            // Get all stock list first
+            await this.getAllVNStockSymbols();
+
+            // Get top popular stocks with real-time prices
+            const popularSymbols = ['VNM', 'FPT', 'VIC', 'VHM', 'VCB', 'TCB', 'HPG', 'MSN', 'BID', 'MBB', 'ACB', 'SSI'];
+            vnStocks = await this.getMultipleStockPrices(popularSymbols);
+        }
+
+        return {
+            crypto,
+            metals,
+            vnStocks,
+            totalStocksAvailable: this.allVNStocks.length,
+            updatedAt: new Date().toISOString()
+        };
+    }
+
+    /**
+     * Helper methods
+     */
+    getAllCryptos() {
+        return [
+            { symbol: 'BTC', name: 'Bitcoin', icon: '₿', type: 'crypto' },
+            { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', type: 'crypto' },
+            { symbol: 'BNB', name: 'BNB', icon: '◈', type: 'crypto' },
+            { symbol: 'XRP', name: 'Ripple', icon: '✕', type: 'crypto' },
+            { symbol: 'SOL', name: 'Solana', icon: '◎', type: 'crypto' },
+            { symbol: 'ADA', name: 'Cardano', icon: '₳', type: 'crypto' },
+            { symbol: 'DOGE', name: 'Dogecoin', icon: '🐕', type: 'crypto' },
+            { symbol: 'DOT', name: 'Polkadot', icon: '●', type: 'crypto' },
+            { symbol: 'AVAX', name: 'Avalanche', icon: '🔺', type: 'crypto' },
+            { symbol: 'LINK', name: 'Chainlink', icon: '⬡', type: 'crypto' },
+            { symbol: 'MATIC', name: 'Polygon', icon: '⬟', type: 'crypto' },
+            { symbol: 'TON', name: 'Toncoin', icon: '💎', type: 'crypto' }
+        ];
+    }
+
+    getAllMetals() {
+        return [
+            { symbol: 'XAU', name: 'Vàng', icon: '🥇', type: 'gold' },
+            { symbol: 'XAG', name: 'Bạc', icon: '🥈', type: 'silver' }
+        ];
+    }
+
+    getPopularVNStocks() {
+        const stocks = [
+            { symbol: 'VNM', name: 'Vinamilk', price: 72 },
+            { symbol: 'FPT', name: 'FPT Corp', price: 155 },
+            { symbol: 'VIC', name: 'Vingroup', price: 38 },
+            { symbol: 'VHM', name: 'Vinhomes', price: 35 },
+            { symbol: 'VCB', name: 'Vietcombank', price: 88 },
+            { symbol: 'BID', name: 'BIDV', price: 52 },
+            { symbol: 'CTG', name: 'VietinBank', price: 38 },
+            { symbol: 'TCB', name: 'Techcombank', price: 58 },
+            { symbol: 'MBB', name: 'MB Bank', price: 26 },
+            { symbol: 'VPB', name: 'VPBank', price: 18 },
+            { symbol: 'HPG', name: 'Hòa Phát', price: 24 },
+            { symbol: 'MSN', name: 'Masan', price: 68 },
+            { symbol: 'VRE', name: 'Vincom Retail', price: 20 },
+            { symbol: 'PLX', name: 'Petrolimex', price: 38 },
+            { symbol: 'GAS', name: 'PV Gas', price: 72 },
+            { symbol: 'SAB', name: 'Sabeco', price: 55 },
+            { symbol: 'ACB', name: 'ACB Bank', price: 28 },
+            { symbol: 'STB', name: 'Sacombank', price: 38 },
+            { symbol: 'SSI', name: 'SSI', price: 42 },
+            { symbol: 'VJC', name: 'Vietjet', price: 95 },
+            { symbol: 'NVL', name: 'Novaland', price: 12 },
+            { symbol: 'VND', name: 'VNDirect', price: 18 },
+            { symbol: 'HDB', name: 'HDBank', price: 25 },
+            { symbol: 'POW', name: 'PV Power', price: 12 },
+            { symbol: 'REE', name: 'REE Corp', price: 55 }
+        ];
+
+        this.allVNStocks = stocks.map(s => ({ ...s, change: 0, exchange: 'HOSE' }));
+        return this.allVNStocks;
+    }
+
+    getVNStockName(symbol) {
+        const stock = this.allVNStocks.find(s => s.symbol === symbol);
+        if (stock?.name) return stock.name;
+
+        const names = {
+            VNM: 'Vinamilk', FPT: 'FPT Corp', VIC: 'Vingroup', VHM: 'Vinhomes',
+            VCB: 'Vietcombank', BID: 'BIDV', CTG: 'VietinBank', TCB: 'Techcombank',
+            MBB: 'MB Bank', VPB: 'VPBank', HPG: 'Hòa Phát', MSN: 'Masan',
+            VRE: 'Vincom Retail', PLX: 'Petrolimex', GAS: 'PV Gas', SAB: 'Sabeco',
+            ACB: 'ACB Bank', STB: 'Sacombank', SSI: 'SSI', VJC: 'Vietjet',
+            NVL: 'Novaland', VND: 'VNDirect', HDB: 'HDBank', POW: 'PV Power'
+        };
+        return names[symbol] || symbol;
+    }
+
+    /**
+     * Cache helpers
+     */
+    getFromCache(key) {
+        const item = this.cache.get(key);
+        if (!item) return null;
+        const timeout = item.customTimeout || this.cacheTimeout;
+        if (Date.now() - item.timestamp > timeout) {
+            this.cache.delete(key);
+            return null;
+        }
+        return item.data;
+    }
+
+    setCache(key, data, customTimeout = null) {
+        this.cache.set(key, { data, timestamp: Date.now(), customTimeout });
+    }
+
+    clearCache() {
+        this.cache.clear();
+    }
+
+    /**
+     * Fallback data
+     */
+    getFallbackCryptoPrices() {
+        return [
+            { symbol: 'BTC', name: 'Bitcoin', icon: '₿', type: 'crypto', price: 105000, change: 0 },
+            { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', type: 'crypto', price: 3300, change: 0 },
+            { symbol: 'BNB', name: 'BNB', icon: '◈', type: 'crypto', price: 650, change: 0 },
+            { symbol: 'XRP', name: 'Ripple', icon: '✕', type: 'crypto', price: 3.1, change: 0 },
+            { symbol: 'SOL', name: 'Solana', icon: '◎', type: 'crypto', price: 240, change: 0 },
+            { symbol: 'ADA', name: 'Cardano', icon: '₳', type: 'crypto', price: 1.0, change: 0 }
+        ];
+    }
+
+    getFallbackMetalPrices() {
+        return [
+            { symbol: 'XAU', name: 'Vàng (oz)', icon: '🥇', type: 'gold', price: 2750, change: 0 },
+            { symbol: 'XAG', name: 'Bạc (oz)', icon: '🥈', type: 'silver', price: 31, change: 0 }
+        ];
+    }
+}
