@@ -1,7 +1,7 @@
 // Vercel Serverless Function - AI Proxy
 // Giải quyết Mixed Content (HTTP -> HTTPS) và ẩn API key
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
 
         return res.status(200).json(data);
     } catch (error) {
-        console.error('[AI Proxy] Error:', error);
+        console.error('[AI Proxy] Error:', error.message);
         return res.status(500).json({ error: error.message });
     }
-};
+}

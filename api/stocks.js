@@ -1,7 +1,7 @@
 // Vercel Serverless Function - Stock Price Proxy
 // Giải quyết CORS cho các API cổ phiếu VN
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
         let data = null;
 
         switch (source) {
-            case 'tcbs':
+            case 'tcbs': {
                 // TCBS API for individual stock
                 const symbol = symbols || 'VNM';
                 console.log('[Stock Proxy] Fetching TCBS for:', symbol);
@@ -31,8 +31,9 @@ module.exports = async function handler(req, res) {
                 );
                 data = await tcbsRes.json();
                 break;
+            }
 
-            case 'ssi':
+            case 'ssi': {
                 // SSI API for all stocks
                 console.log('[Stock Proxy] Fetching SSI list...');
                 const ssiRes = await fetch(
@@ -41,8 +42,9 @@ module.exports = async function handler(req, res) {
                 );
                 data = await ssiRes.json();
                 break;
+            }
 
-            case 'tcbs-list':
+            case 'tcbs-list': {
                 // Fetch multiple stocks from TCBS
                 const stockList = (symbols || 'VNM,FPT,VIC').split(',');
                 const results = [];
@@ -73,10 +75,11 @@ module.exports = async function handler(req, res) {
                         console.error(`[Stock Proxy] Error fetching ${sym}:`, e.message);
                     }
                     // Small delay
-                    await new Promise(r => setTimeout(r, 100));
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
                 data = { stocks: results };
                 break;
+            }
 
             default:
                 return res.status(400).json({ error: 'Invalid source. Use: tcbs, ssi, or tcbs-list' });
@@ -84,7 +87,7 @@ module.exports = async function handler(req, res) {
 
         return res.status(200).json(data);
     } catch (error) {
-        console.error('[Stock Proxy] Error:', error);
+        console.error('[Stock Proxy] Error:', error.message);
         return res.status(500).json({ error: error.message });
     }
-};
+}
