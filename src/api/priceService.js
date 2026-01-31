@@ -20,6 +20,14 @@ export class PriceService {
     }
 
     /**
+     * Clear all cached data to force fresh fetch
+     */
+    clearCache() {
+        console.log('🗑️ Clearing price cache for fresh data...');
+        this.cache.clear();
+    }
+
+    /**
      * Get real-time crypto prices from CoinGecko via proxy
      */
     async getCryptoPrices() {

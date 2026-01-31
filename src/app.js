@@ -98,16 +98,15 @@ export class App {
       <div class="search-bar">
         <div class="search-input-wrapper">
           <span class="search-icon">🔍</span>
-          <textarea 
-            class="search-textarea" 
+          <input type="text" 
+            class="search-input" 
             id="search-input"
-            rows="1"
             placeholder="Tìm cổ phiếu VN, vàng, bạc..."
+            value="${this.state.searchQuery}"
             autocomplete="off"
             autocapitalize="off"
             autocorrect="off"
-            spellcheck="false"
-          >${this.state.searchQuery}</textarea>
+            spellcheck="false">
           ${this.state.searchQuery ?
         `<button class="search-clear" id="search-clear">✕</button>` : ''}
         </div>
@@ -449,22 +448,34 @@ export class App {
     document.getElementById('btn-ai-scan')?.addEventListener('click', () => this.startAIScan());
     document.getElementById('btn-ai-scan-inline')?.addEventListener('click', () => this.startAIScan());
 
-    // Search - with forced LTR direction fix
+    // Search - simple LTR direction only (no unicodeBidi which causes reversal)
     const searchInput = document.getElementById('search-input');
     if (searchInput) {
-      // Force LTR direction via JavaScript (backup for any CSS override)
+      // Simple direction only - DO NOT use unicodeBidi
       searchInput.style.direction = 'ltr';
       searchInput.style.textAlign = 'left';
-      searchInput.style.unicodeBidi = 'plaintext';
-      searchInput.setAttribute('dir', 'ltr');
 
-      searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+      // Handle both input and textarea
+      const eventType = searchInput.tagName === 'TEXTAREA' ? 'input' : 'input';
+      searchInput.addEventListener(eventType, (e) => {
+        const value = searchInput.tagName === 'TEXTAREA' ? e.target.textContent || e.target.value : e.target.value;
+        this.handleSearch(value.replace(/\n/g, ''));
+      });
+
       searchInput.addEventListener('focus', (e) => {
-        // Re-apply LTR on every focus to override any browser/OS RTL
         e.target.style.direction = 'ltr';
         e.target.style.textAlign = 'left';
         if (this.state.searchQuery) this.handleSearch(this.state.searchQuery);
       });
+
+      // Prevent Enter key in textarea from creating new lines
+      if (searchInput.tagName === 'TEXTAREA') {
+        searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+          }
+        });
+      }
     }
 
     document.getElementById('search-clear')?.addEventListener('click', () => {
@@ -787,6 +798,9 @@ Chỉ trả về các tài sản đáng MUA nhất, không liệt kê tất cả
 
   async loadData() {
     if (this.state.isLoading) return;
+
+    // Clear cache to force fresh data on refresh
+    this.priceService.clearCache();
 
     this.state.isLoading = true;
     this.updateAssetsGrid();

@@ -1128,12 +1128,9 @@ body {
   pointer-events: none;
 }
 
-/* Search Textarea - Using textarea instead of input for reliable LTR */
-.search-textarea {
+/* Search Input - Simple styling without bidi properties */
+.search-input {
   width: 100%;
-  height: 46px;
-  min-height: 46px;
-  max-height: 46px;
   padding: 12px 40px 12px 48px;
   background: var(--bg-tertiary);
   border: 2px solid var(--glass-border);
@@ -1141,20 +1138,16 @@ body {
   color: var(--text-primary);
   font-size: var(--font-size-base);
   font-family: var(--font-family);
-  line-height: 22px;
   transition: all var(--transition-fast);
-  resize: none;
-  overflow: hidden;
-  white-space: nowrap;
 }
 
-.search-textarea:focus {
+.search-input:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
 }
 
-.search-textarea::placeholder {
+.search-input::placeholder {
   color: var(--text-tertiary);
 }
 
