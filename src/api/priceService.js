@@ -69,7 +69,7 @@ export class PriceService {
                     const data = await response.json();
                     if (data.assets && Array.isArray(data.assets)) {
                         console.log(`✅ Got ${data.assets.length} metal prices:`, data.assets.map(a => `${a.symbol}=$${a.price}`));
-                        this.setCache(cacheKey, data.assets, 30000); // Cache 30 sec for realtime
+                        this.setCache(cacheKey, data.assets, 15000); // Cache 15 sec for realtime
                         return data.assets;
                     }
                 }
