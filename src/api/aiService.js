@@ -54,14 +54,15 @@ QUY TẮC:
         const contextInfo = this.getMarketContext(type, symbol);
 
         const userPrompt = `📅 Ngày phân tích: ${today}
+⏰ Thời gian: ${new Date().toLocaleTimeString('vi-VN')} (GMT+7)
 
-📊 TÀI SẢN CẦN PHÂN TÍCH:
+📊 TÀI SẢN CẦN PHÂN TÍCH (DỮ LIỆU REALTIME):
 - Mã: ${symbol}
 - Tên đầy đủ: ${name}
 - Loại: ${this.getAssetTypeLabel(type)}
-- Giá hiện tại: ${this.formatPriceForPrompt(price, type)}
-- Biến động gần đây: ${change >= 0 ? '+' : ''}${(change || 0).toFixed(2)}%
-- Khung thời gian: ${timeframeLabel}
+- Giá hiện tại: ${this.formatPriceForPrompt(price, type)} [REALTIME]
+- Biến động 24h: ${change >= 0 ? '+' : ''}${(change || 0).toFixed(2)}%
+- Khung thời gian phân tích: ${timeframeLabel}
 
 ${contextInfo}
 
