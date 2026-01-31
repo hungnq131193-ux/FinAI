@@ -102,9 +102,13 @@ export class App {
                  placeholder="Tìm cổ phiếu VN, vàng, bạc..." 
                  value="${this.state.searchQuery}"
                  autocomplete="off"
+                 autocapitalize="off"
+                 autocorrect="off"
                  dir="ltr"
                  lang="en"
-                 style="direction: ltr !important; text-align: left !important;"
+                 inputmode="text"
+                 data-dir="ltr"
+                 style="direction: ltr !important; text-align: left !important; unicode-bidi: plaintext !important;"
                  spellcheck="false">
           ${this.state.searchQuery ?
         `<button class="search-clear" id="search-clear">✕</button>` : ''}
