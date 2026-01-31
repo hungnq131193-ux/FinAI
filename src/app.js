@@ -447,12 +447,23 @@ export class App {
     document.getElementById('btn-ai-scan')?.addEventListener('click', () => this.startAIScan());
     document.getElementById('btn-ai-scan-inline')?.addEventListener('click', () => this.startAIScan());
 
-    // Search
+    // Search - with forced LTR direction fix
     const searchInput = document.getElementById('search-input');
-    searchInput?.addEventListener('input', (e) => this.handleSearch(e.target.value));
-    searchInput?.addEventListener('focus', () => {
-      if (this.state.searchQuery) this.handleSearch(this.state.searchQuery);
-    });
+    if (searchInput) {
+      // Force LTR direction via JavaScript (backup for any CSS override)
+      searchInput.style.direction = 'ltr';
+      searchInput.style.textAlign = 'left';
+      searchInput.style.unicodeBidi = 'plaintext';
+      searchInput.setAttribute('dir', 'ltr');
+
+      searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+      searchInput.addEventListener('focus', (e) => {
+        // Re-apply LTR on every focus to override any browser/OS RTL
+        e.target.style.direction = 'ltr';
+        e.target.style.textAlign = 'left';
+        if (this.state.searchQuery) this.handleSearch(this.state.searchQuery);
+      });
+    }
 
     document.getElementById('search-clear')?.addEventListener('click', () => {
       this.state.searchQuery = '';

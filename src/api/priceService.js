@@ -559,9 +559,10 @@ export class PriceService {
     }
 
     getAllMetals() {
+        // Return metals for search - symbols must match API response
         return [
-            { symbol: 'XAU', name: 'Vàng', icon: '🥇', type: 'gold' },
-            { symbol: 'XAG', name: 'Bạc', icon: '🥈', type: 'silver' }
+            { symbol: 'XAU/USD', name: 'Vàng (Spot Gold)', icon: '🥇', type: 'metal' },
+            { symbol: 'XAG/USD', name: 'Bạc (Spot Silver)', icon: '🥈', type: 'metal' }
         ];
     }
 
