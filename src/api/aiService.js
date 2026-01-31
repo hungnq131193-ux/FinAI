@@ -24,37 +24,44 @@ export class AIService {
 
         console.log(`🤖 AI đang phân tích ${symbol}...`);
 
-        const systemPrompt = `Bạn là chuyên gia phân tích tài chính hàng đầu với 20+ năm kinh nghiệm. 
+        const systemPrompt = `Bạn là chuyên gia phân tích tài chính với 20+ năm kinh nghiệm trên thị trường Việt Nam và quốc tế.
 
-Nhiệm vụ:
-1. Phân tích kỹ thuật: RSI, MACD, Bollinger Bands, Support/Resistance
-2. Đánh giá xu hướng và momentum
-3. Đưa ra Entry, Stop Loss, và 3 mức Take Profit cụ thể
-4. Giải thích rõ ràng bằng tiếng Việt
+QUAN TRỌNG:
+- KHÔNG tìm kiếm internet, KHÔNG nói "đang tìm kiếm"
+- Phân tích TRỰC TIẾP dựa trên dữ liệu được cung cấp
+- Sử dụng kiến thức sẵn có về kỹ thuật phân tích
+- Trả lời bằng tiếng Việt, rõ ràng và chuyên nghiệp
 
-CHỈ trả về JSON hợp lệ, không có text khác.`;
+CHỈ trả về JSON hợp lệ, không có text giải thích bên ngoài.`;
 
-        const userPrompt = `Phân tích chi tiết tài sản sau:
+        const userPrompt = `Phân tích kỹ thuật và đưa ra khuyến nghị giao dịch:
 
-📊 Thông tin:
-- Tài sản: ${name} (${symbol})
+📊 THÔNG TIN TÀI SẢN:
+- Mã: ${symbol}
+- Tên: ${name}
 - Loại: ${this.getAssetTypeLabel(type)}
 - Giá hiện tại: ${this.formatPriceForPrompt(price, type)}
-- Thay đổi 24h: ${change >= 0 ? '+' : ''}${(change || 0).toFixed(2)}%
-- Khung thời gian: ${timeframeLabel}
+- Biến động 24h: ${change >= 0 ? '+' : ''}${(change || 0).toFixed(2)}%
+- Khung thời gian phân tích: ${timeframeLabel}
 
-🎯 Trả về JSON:
+📈 YÊU CẦU PHÂN TÍCH:
+1. Đánh giá xu hướng dựa trên biến động giá
+2. Ước tính vùng hỗ trợ/kháng cự dựa trên giá hiện tại
+3. Đưa ra điểm vào lệnh, cắt lỗ, và 3 mức chốt lời cụ thể
+4. Giải thích lý do bằng tiếng Việt
+
+🎯 TRẢ VỀ JSON (CHỈ JSON, KHÔNG TEXT KHÁC):
 {
-  "action": "BUY" | "SELL" | "HOLD",
-  "entry": <giá vào lệnh>,
-  "stopLoss": <giá cắt lỗ>,
+  "action": "BUY" hoặc "SELL" hoặc "HOLD",
+  "entry": <giá vào lệnh - số>,
+  "stopLoss": <giá cắt lỗ - số>,
   "targets": [<TP1>, <TP2>, <TP3>],
   "riskReward": "1:X",
   "confidence": <1-5>,
   "reasoning": {
-    "technical": "<phân tích kỹ thuật>",
-    "news": "<tin tức ảnh hưởng>",
-    "summary": "<tóm tắt lý do>"
+    "technical": "<Phân tích kỹ thuật: RSI ước tính, xu hướng, vùng hỗ trợ/kháng cự>",
+    "news": "<Nhận định chung về thị trường và ngành>",
+    "summary": "<Tóm tắt: Nên mua/bán/giữ và lý do chính>"
   }
 }`;
 

@@ -422,35 +422,42 @@ export class PriceService {
     }
 
     getPopularVNStocks() {
+        // Giá ước tính dựa trên dữ liệu thị trường (đơn vị: nghìn VND)
+        // Lưu ý: Đây là giá tham khảo, không phải real-time
         const stocks = [
-            { symbol: 'VNM', name: 'Vinamilk', price: 72 },
-            { symbol: 'FPT', name: 'FPT Corp', price: 155 },
-            { symbol: 'VIC', name: 'Vingroup', price: 38 },
-            { symbol: 'VHM', name: 'Vinhomes', price: 35 },
-            { symbol: 'VCB', name: 'Vietcombank', price: 88 },
-            { symbol: 'BID', name: 'BIDV', price: 52 },
-            { symbol: 'CTG', name: 'VietinBank', price: 38 },
-            { symbol: 'TCB', name: 'Techcombank', price: 58 },
-            { symbol: 'MBB', name: 'MB Bank', price: 26 },
-            { symbol: 'VPB', name: 'VPBank', price: 18 },
-            { symbol: 'HPG', name: 'Hòa Phát', price: 24 },
-            { symbol: 'MSN', name: 'Masan', price: 68 },
-            { symbol: 'VRE', name: 'Vincom Retail', price: 20 },
-            { symbol: 'PLX', name: 'Petrolimex', price: 38 },
-            { symbol: 'GAS', name: 'PV Gas', price: 72 },
-            { symbol: 'SAB', name: 'Sabeco', price: 55 },
-            { symbol: 'ACB', name: 'ACB Bank', price: 28 },
-            { symbol: 'STB', name: 'Sacombank', price: 38 },
-            { symbol: 'SSI', name: 'SSI', price: 42 },
-            { symbol: 'VJC', name: 'Vietjet', price: 95 },
-            { symbol: 'NVL', name: 'Novaland', price: 12 },
-            { symbol: 'VND', name: 'VNDirect', price: 18 },
-            { symbol: 'HDB', name: 'HDBank', price: 25 },
-            { symbol: 'POW', name: 'PV Power', price: 12 },
-            { symbol: 'REE', name: 'REE Corp', price: 55 }
+            { symbol: 'VNM', name: 'Vinamilk', price: 68.5, change: -0.7 },
+            { symbol: 'FPT', name: 'FPT Corp', price: 148.2, change: 1.5 },
+            { symbol: 'VIC', name: 'Vingroup', price: 41.3, change: 0.5 },
+            { symbol: 'VHM', name: 'Vinhomes', price: 38.9, change: -0.3 },
+            { symbol: 'VCB', name: 'Vietcombank', price: 92.5, change: 0.8 },
+            { symbol: 'BID', name: 'BIDV', price: 50.2, change: 0.4 },
+            { symbol: 'CTG', name: 'VietinBank', price: 36.8, change: -0.5 },
+            { symbol: 'TCB', name: 'Techcombank', price: 55.4, change: 1.2 },
+            { symbol: 'MBB', name: 'MB Bank', price: 27.3, change: 0.7 },
+            { symbol: 'VPB', name: 'VPBank', price: 19.8, change: -1.1 },
+            { symbol: 'HPG', name: 'Hòa Phát', price: 26.5, change: 2.3 },
+            { symbol: 'MSN', name: 'Masan', price: 72.1, change: 0.9 },
+            { symbol: 'VRE', name: 'Vincom Retail', price: 21.5, change: -0.2 },
+            { symbol: 'PLX', name: 'Petrolimex', price: 39.7, change: 0.3 },
+            { symbol: 'GAS', name: 'PV Gas', price: 75.8, change: 1.8 },
+            { symbol: 'SAB', name: 'Sabeco', price: 58.2, change: -0.8 },
+            { symbol: 'ACB', name: 'ACB Bank', price: 26.1, change: 0.6 },
+            { symbol: 'STB', name: 'Sacombank', price: 35.4, change: 1.4 },
+            { symbol: 'SSI', name: 'SSI Securities', price: 38.7, change: 2.1 },
+            { symbol: 'VJC', name: 'Vietjet Air', price: 98.5, change: 0.4 },
+            { symbol: 'NVL', name: 'Novaland', price: 10.8, change: -2.5 },
+            { symbol: 'VND', name: 'VNDirect', price: 17.2, change: 1.9 },
+            { symbol: 'HDB', name: 'HDBank', price: 24.6, change: 0.5 },
+            { symbol: 'POW', name: 'PV Power', price: 11.5, change: 0.8 },
+            { symbol: 'REE', name: 'REE Corp', price: 52.3, change: -0.4 }
         ];
 
-        this.allVNStocks = stocks.map(s => ({ ...s, change: 0, exchange: 'HOSE' }));
+        this.allVNStocks = stocks.map(s => ({
+            ...s,
+            exchange: 'HOSE',
+            isRealtime: false,
+            note: 'Giá tham khảo - cập nhật lần cuối: 01/2026'
+        }));
         return this.allVNStocks;
     }
 
