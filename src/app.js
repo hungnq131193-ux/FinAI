@@ -545,14 +545,15 @@ export class App {
     this.state.searchResults = [];
     this.updateSearchBar();
 
-    this.showToast(`Đang tải ${symbol}...`, 'info');
+    this.showToast(`Đang lấy giá realtime ${symbol}...`, 'info');
 
     let asset = null;
 
     if (type === 'stock') {
-      asset = await this.priceService.getStockPrice(symbol);
+      // Use getRealtimePrice for latest real-time data
+      asset = await this.priceService.getRealtimePrice(symbol, type);
     } else {
-      // Find from cached data
+      // Find from cached data for crypto/metals
       asset = this.state.assets.find(a => a.symbol === symbol);
     }
 

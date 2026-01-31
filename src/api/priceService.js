@@ -141,6 +141,50 @@ export class PriceService {
     }
 
     /**
+     * Get real-time price for a single stock (use when selecting from search)
+     */
+    async getRealtimePrice(symbol, type = 'stock') {
+        if (type === 'stock' && this.isProduction) {
+            try {
+                console.log(`📡 Fetching realtime price for ${symbol}...`);
+                const response = await fetch(
+                    `${this.stocksProxyUrl}?source=quote&symbols=${symbol}`,
+                    { signal: AbortSignal.timeout(10000) }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.price) {
+                        console.log(`✅ ${symbol}: ${data.price} (${data.change >= 0 ? '+' : ''}${data.change}%)`);
+                        return {
+                            symbol: symbol,
+                            name: this.getVNStockName(symbol),
+                            icon: '📈',
+                            type: 'stock',
+                            price: data.price,
+                            change: data.change,
+                            high: data.high,
+                            low: data.low,
+                            open: data.open,
+                            volume: data.volume,
+                            prevClose: data.prevClose,
+                            changeWeek: data.changeWeek,
+                            isRealtime: true,
+                            source: data.source,
+                            timestamp: data.timestamp
+                        };
+                    }
+                }
+            } catch (e) {
+                console.error(`Realtime price error for ${symbol}:`, e.message);
+            }
+        }
+
+        // Fallback to getStockPrice
+        return this.getStockPrice(symbol);
+    }
+
+    /**
      * Get top movers - stocks with biggest changes
      */
     getTopMovers(count = 10, direction = 'up') {
