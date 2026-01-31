@@ -1143,6 +1143,16 @@ body {
   -webkit-text-security: none !important;
 }
 
+/* Extra specificity for LTR */
+input.search-input,
+input#search-input,
+.search-bar input[type="text"],
+#search-input {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: bidi-override !important;
+}
+
 .search-input:focus {
   outline: none;
   border-color: var(--accent-crypto);
