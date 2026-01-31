@@ -107,8 +107,7 @@ export class App {
                  dir="ltr"
                  lang="en"
                  inputmode="text"
-                 data-dir="ltr"
-                 style="direction: ltr !important; text-align: left !important; unicode-bidi: plaintext !important;"
+                 style="direction: ltr !important; text-align: left !important;"
                  spellcheck="false">
           ${this.state.searchQuery ?
         `<button class="search-clear" id="search-clear">✕</button>` : ''}

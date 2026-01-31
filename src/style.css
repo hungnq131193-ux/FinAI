@@ -1140,27 +1140,18 @@ body {
   font-size: var(--font-size-base);
   font-family: var(--font-family);
   transition: all var(--transition-fast);
-  /* ULTIMATE FIX: Force LTR with plaintext (handles RTL OS/browser settings) */
+  /* Simple LTR - removed unicode-bidi which was causing issues */
   direction: ltr !important;
   text-align: left !important;
-  unicode-bidi: plaintext !important;
-  writing-mode: horizontal-tb !important;
-  text-rendering: auto !important;
-  letter-spacing: normal !important;
-  word-spacing: normal !important;
 }
 
-/* Maximum specificity for LTR - override any browser defaults */
-html[dir] .search-input,
-body .search-input,
+/* Simple direction fix - no unicode-bidi */
 input.search-input,
 input#search-input,
 .search-bar input[type="text"],
-#search-input,
-[dir="ltr"] .search-input {
+#search-input {
   direction: ltr !important;
   text-align: left !important;
-  unicode-bidi: plaintext !important;
 }
 
 .search-input:focus {
@@ -1171,7 +1162,6 @@ input#search-input,
 
 .search-input::placeholder {
   color: var(--text-tertiary);
-  direction: ltr !important;
 }
 
 .search-clear {

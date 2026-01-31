@@ -25,6 +25,20 @@ export class AIService {
 
         console.log(`🤖 AI đang phân tích ${symbol}...`);
 
+        // Fetch relevant news for better analysis
+        let newsContext = '';
+        try {
+            const news = await this.fetchNews(symbol, type);
+            if (news && news.length > 0) {
+                newsContext = `\n📰 TIN TỨC LIÊN QUAN (MỚI NHẤT):\n${news.map((n, i) =>
+                    `${i + 1}. ${n.title}${n.summary ? ' - ' + n.summary : ''} (${n.source})`
+                ).join('\n')}\n`;
+                console.log(`📰 Found ${news.length} news articles for ${symbol}`);
+            }
+        } catch (e) {
+            console.log('📰 News fetch skipped:', e.message);
+        }
+
         const systemPrompt = `Bạn là chuyên gia phân tích tài chính hàng đầu với 20+ năm kinh nghiệm, chuyên về thị trường chứng khoán Việt Nam và kim loại quý (vàng, bạc).
 
 VAI TRÒ:
@@ -68,6 +82,7 @@ QUY TẮC:
 ${timeframeStrategy}
 
 ${contextInfo}
+${newsContext}
 
 🎯 YÊU CẦU PHÂN TÍCH CHI TIẾT:
 
@@ -112,6 +127,27 @@ ${contextInfo}
             console.error('❌ API error:', error.message);
             console.log('⚠️ Using fallback analysis');
             return this.generateFallbackAnalysis(asset);
+        }
+    }
+
+    /**
+     * Fetch relevant news for asset analysis
+     */
+    async fetchNews(symbol, type) {
+        try {
+            const response = await fetch(`/api/news?symbol=${encodeURIComponent(symbol)}&type=${type}`, {
+                signal: AbortSignal.timeout(5000)
+            });
+
+            if (!response.ok) {
+                throw new Error('News fetch failed');
+            }
+
+            const data = await response.json();
+            return data.articles || [];
+        } catch (error) {
+            console.log('📰 News API error, using context only:', error.message);
+            return [];
         }
     }
 
