@@ -3,7 +3,7 @@
  * Mobile-first Financial Analysis Webapp
  * 
  * Features:
- * - Search all VN stocks, crypto, metals
+ * - Search all VN stocks and gold/silver metals
  * - AI Scan to find best buying opportunities
  * - Individual asset analysis with Entry/SL/TP
  */
@@ -30,7 +30,7 @@ export class App {
       isScanning: false,
       totalStocksAvailable: 0,
       activeTab: 'market', // market, search
-      activeFilter: 'all', // all, stock, crypto, metal
+      activeFilter: 'all', // all, stock, metal
       filteredAssets: [] // Assets filtered by category
     };
   }
@@ -180,14 +180,14 @@ export class App {
           <div class="assets-grid empty-state" id="assets-grid">
             <div class="empty-hint">
               <span class="empty-icon">👆</span>
-              <p>Nhấn vào <strong>Cổ phiếu</strong>, <strong>Crypto</strong> hoặc <strong>Vàng/Bạc</strong> để xem danh sách</p>
+              <p>Nhấn vào <strong>Cổ phiếu VN</strong> hoặc <strong>Vàng/Bạc</strong> để xem danh sách</p>
             </div>
           </div>
         </section>
       `;
     }
 
-    const filterLabels = { 'stock': '📈 Cổ Phiếu VN', 'crypto': '₿ Crypto', 'metal': '🥇 Vàng/Kim loại' };
+    const filterLabels = { 'stock': '📈 Cổ Phiếu VN', 'metal': '🥇 Vàng/Bạc' };
 
     return `
       <section class="section" id="assets-section">
@@ -581,16 +581,19 @@ export class App {
         <div class="search-input-wrapper">
           <span class="search-icon">🔍</span>
           <input type="text" class="search-input" id="search-input" 
-                 placeholder="Tìm cổ phiếu, crypto, vàng..." 
+                 placeholder="Tìm cổ phiếu VN, vàng, bạc..." 
                  value="${this.state.searchQuery}"
-                 autocomplete="off">
+                 autocomplete="off"
+                 dir="ltr"
+                 lang="en"
+                 style="direction: ltr !important; text-align: left !important; unicode-bidi: plaintext;"
+                 spellcheck="false">
           ${this.state.searchQuery ?
           `<button class="search-clear" id="search-clear">✕</button>` : ''}
         </div>
         <div class="search-filters">
           <button class="filter-btn active" data-filter="all">Tất cả</button>
-          <button class="filter-btn" data-filter="stock">Cổ phiếu</button>
-          <button class="filter-btn" data-filter="crypto">Crypto</button>
+          <button class="filter-btn" data-filter="stock">Cổ phiếu VN</button>
           <button class="filter-btn" data-filter="metal">Vàng/Bạc</button>
         </div>
         ${this.state.searchResults.length > 0 ? this.renderSearchResults() : ''}
@@ -776,7 +779,6 @@ Chỉ trả về các tài sản đáng MUA nhất, không liệt kê tất cả
       const allPrices = await this.priceService.getAllPrices();
 
       this.state.assets = [
-        ...(allPrices.crypto || []),
         ...(allPrices.metals || []),
         ...(allPrices.vnStocks || [])
       ];

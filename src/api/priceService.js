@@ -192,17 +192,7 @@ export class PriceService {
             results = results.concat(stockResults.map(s => ({ ...s, type: 'stock', icon: '📈' })));
         }
 
-        // Search crypto
-        if (type === 'all' || type === 'crypto') {
-            const cryptos = this.getAllCryptos();
-            const cryptoResults = cryptos.filter(c =>
-                c.symbol.includes(q) ||
-                c.name.toUpperCase().includes(q)
-            );
-            results = results.concat(cryptoResults);
-        }
-
-        // Search metals
+        // Search metals (Gold/Silver)
         if (type === 'all' || type === 'metal') {
             const metals = this.getAllMetals();
             const metalResults = metals.filter(m =>
@@ -528,10 +518,8 @@ export class PriceService {
     async getAllPrices(includeStocks = true) {
         console.log('🔄 Đang lấy dữ liệu thị trường...');
 
-        const [crypto, metals] = await Promise.all([
-            this.getCryptoPrices(),
-            this.getMetalPrices()
-        ]);
+        // Only fetch metals now (gold, silver) - crypto removed
+        const metals = await this.getMetalPrices();
 
         let vnStocks = [];
         if (includeStocks) {
@@ -544,7 +532,6 @@ export class PriceService {
         }
 
         return {
-            crypto,
             metals,
             vnStocks,
             totalStocksAvailable: this.allVNStocks.length,
