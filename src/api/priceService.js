@@ -62,32 +62,39 @@ export class PriceService {
         // Use proxy in production to avoid CORS
         if (this.isProduction) {
             try {
-                console.log('📡 Fetching VN stocks via Vercel proxy...');
-                const response = await fetch(`${this.stocksProxyUrl}?source=ssi`, {
+                console.log('📡 Fetching VN stocks via CafeF proxy...');
+                const response = await fetch(`${this.stocksProxyUrl}?source=cafef`, {
                     signal: AbortSignal.timeout(15000)
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.data && Array.isArray(data.data)) {
-                        const stocks = data.data.map(s => ({
-                            symbol: s.stockSymbol || s.ss,
-                            name: s.stockName || s.organ || s.ss,
-                            exchange: s.exchange || s.mc,
-                            price: (s.matchedPrice || s.mp || s.lastPrice || 0) / 1000,
-                            change: s.priceChange || s.pc || 0,
-                            changePercent: s.priceChangePercent || s.pcp || 0,
-                            volume: s.totalMatchedVol || s.tmv || 0
+                    // CafeF returns { stocks: [...], count, source, timestamp }
+                    if (data.stocks && Array.isArray(data.stocks)) {
+                        const stocks = data.stocks.map(s => ({
+                            symbol: s.symbol,
+                            name: this.getVNStockName(s.symbol),
+                            exchange: 'HOSE',
+                            price: s.price, // Already in thousands VND
+                            change: s.changePercent || 0,
+                            priceChange: s.change || 0,
+                            volume: s.volume || 0,
+                            refPrice: s.refPrice,
+                            high: s.high,
+                            low: s.low,
+                            time: s.time,
+                            isRealtime: s.isRealtime,
+                            source: 'CafeF'
                         })).filter(s => s.symbol && s.price > 0);
 
-                        this.setCache(cacheKey, stocks, 300000);
+                        this.setCache(cacheKey, stocks, 60000); // Cache 1 min for realtime
                         this.allVNStocks = stocks;
-                        console.log(`✅ Loaded ${stocks.length} VN stocks via proxy`);
+                        console.log(`✅ Loaded ${stocks.length} VN stocks from CafeF`);
                         return stocks;
                     }
                 }
             } catch (e) {
-                console.error('Proxy SSI error:', e.message);
+                console.error('CafeF proxy error:', e.message);
             }
 
             // Fallback: use hardcoded list in production

@@ -19,7 +19,8 @@ export default async function handler(req, res) {
 
     try {
         // Default: Get all HOSE stocks from CafeF (REAL-TIME!)
-        if (!source || source === 'cafef' || source === 'all') {
+        // Also accept 'ssi' as alias for backward compatibility
+        if (!source || source === 'cafef' || source === 'all' || source === 'ssi') {
             console.log('[Stock API] Fetching CafeF HOSE data...');
 
             const response = await fetch(
