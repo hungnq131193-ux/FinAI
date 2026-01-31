@@ -50,9 +50,8 @@ export class PriceService {
         // Fallback to hardcoded prices
         return this.getDefaultCryptoAssets();
     }
-
     /**
-     * Get real-time metal prices (Gold, Silver) from CoinGecko via proxy
+     * Get real-time metal prices (Gold, Silver) from API via proxy
      */
     async getMetalPrices() {
         const cacheKey = 'metal_prices';
@@ -61,7 +60,7 @@ export class PriceService {
 
         if (this.isProduction) {
             try {
-                console.log('📡 Fetching metal prices via CoinGecko proxy...');
+                console.log('📡 Fetching metal prices via GoldPrice.org proxy...');
                 const response = await fetch(`${this.cryptoProxyUrl}?type=metals`, {
                     signal: AbortSignal.timeout(15000)
                 });
@@ -69,8 +68,8 @@ export class PriceService {
                 if (response.ok) {
                     const data = await response.json();
                     if (data.assets && Array.isArray(data.assets)) {
-                        console.log(`✅ Got ${data.assets.length} metal prices from CoinGecko`);
-                        this.setCache(cacheKey, data.assets, 60000); // Cache 1 min
+                        console.log(`✅ Got ${data.assets.length} metal prices:`, data.assets.map(a => `${a.symbol}=$${a.price}`));
+                        this.setCache(cacheKey, data.assets, 30000); // Cache 30 sec for realtime
                         return data.assets;
                     }
                 }
@@ -79,10 +78,10 @@ export class PriceService {
             }
         }
 
-        // Fallback hardcoded gold/silver
+        // Fallback with current approximate values (Jan 2026)
         return [
-            { symbol: 'GOLD', name: 'Vàng (XAU/USD)', icon: '🥇', type: 'metal', price: 2050, change: 0.5 },
-            { symbol: 'SILVER', name: 'Bạc (XAG/USD)', icon: '🥈', type: 'metal', price: 23.5, change: 0.3 }
+            { symbol: 'XAU/USD', name: 'Vàng (Spot Gold)', icon: '🥇', type: 'metal', price: 4900, change: -2.0, source: 'Fallback' },
+            { symbol: 'XAG/USD', name: 'Bạc (Spot Silver)', icon: '🥈', type: 'metal', price: 80, change: -1.5, source: 'Fallback' }
         ];
     }
 
