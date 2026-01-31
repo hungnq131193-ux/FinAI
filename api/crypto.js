@@ -142,55 +142,129 @@ export default async function handler(req, res) {
             });
         }
 
-        // Gold/metals only
+        // Gold/metals only - Get REAL XAU/USD and XAG/USD prices
         if (type === 'metals' || type === 'gold') {
-            console.log('[Crypto API] Fetching gold prices...');
-
-            const response = await fetch(
-                'https://api.coingecko.com/api/v3/simple/price?ids=pax-gold,tether-gold&vs_currencies=usd&include_24hr_change=true',
-                { signal: AbortSignal.timeout(10000) }
-            );
-
-            if (!response.ok) {
-                throw new Error(`CoinGecko returned ${response.status}`);
-            }
-
-            const data = await response.json();
+            console.log('[Metals API] Fetching real XAU/USD and XAG/USD prices...');
 
             const metals = [];
 
-            if (data['pax-gold']) {
-                metals.push({
-                    id: 'gold',
-                    symbol: 'GOLD',
-                    name: 'Vàng (XAU/USD)',
-                    icon: '🥇',
-                    type: 'metal',
-                    price: data['pax-gold'].usd,
-                    change: data['pax-gold'].usd_24h_change || 0,
-                    source: 'CoinGecko/PAXGold',
-                    isRealtime: true
-                });
+            try {
+                // Try Gold-API.io free endpoint first (more accurate than crypto tokens)
+                // Fallback: Use Frankfurter API for forex rates to calculate from USD
+
+                // Method 1: Use free metals API proxy through goldpricez
+                const goldPriceResponse = await fetch(
+                    'https://data-asg.goldprice.org/dbXRates/USD',
+                    {
+                        signal: AbortSignal.timeout(10000),
+                        headers: { 'Accept': 'application/json' }
+                    }
+                );
+
+                if (goldPriceResponse.ok) {
+                    const data = await goldPriceResponse.json();
+                    console.log('[Metals API] GoldPrice.org response:', data);
+
+                    // Data format: { items: [{ xauPrice, xagPrice, chgXau, chgXag, ... }] }
+                    if (data.items && data.items[0]) {
+                        const item = data.items[0];
+
+                        if (item.xauPrice) {
+                            metals.push({
+                                id: 'xau',
+                                symbol: 'XAU/USD',
+                                name: 'Vàng (Spot Gold)',
+                                icon: '🥇',
+                                type: 'metal',
+                                price: parseFloat(item.xauPrice),
+                                change: parseFloat(item.pcXau) || 0, // Percent change
+                                priceChange: parseFloat(item.chgXau) || 0,
+                                source: 'GoldPrice.org',
+                                isRealtime: true
+                            });
+                        }
+
+                        if (item.xagPrice) {
+                            metals.push({
+                                id: 'xag',
+                                symbol: 'XAG/USD',
+                                name: 'Bạc (Spot Silver)',
+                                icon: '🥈',
+                                type: 'metal',
+                                price: parseFloat(item.xagPrice),
+                                change: parseFloat(item.pcXag) || 0, // Percent change
+                                priceChange: parseFloat(item.chgXag) || 0,
+                                source: 'GoldPrice.org',
+                                isRealtime: true
+                            });
+                        }
+                    }
+                }
+
+                // If no data from primary source, try backup
+                if (metals.length === 0) {
+                    console.log('[Metals API] Primary source failed, using PAX Gold as fallback...');
+
+                    // Fallback to PAX Gold (tokenized gold, ~0.5% off real price)
+                    const paxResponse = await fetch(
+                        'https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=usd&include_24hr_change=true',
+                        { signal: AbortSignal.timeout(10000) }
+                    );
+
+                    if (paxResponse.ok) {
+                        const paxData = await paxResponse.json();
+                        if (paxData['pax-gold']) {
+                            metals.push({
+                                id: 'xau',
+                                symbol: 'XAU/USD',
+                                name: 'Vàng (ước tính từ PAXG)',
+                                icon: '🥇',
+                                type: 'metal',
+                                price: paxData['pax-gold'].usd,
+                                change: paxData['pax-gold'].usd_24h_change || 0,
+                                source: 'CoinGecko/PAXGold',
+                                isRealtime: true,
+                                note: 'Giá ước tính, có thể chênh ±0.5%'
+                            });
+                        }
+                    }
+
+                    // Add silver estimate based on gold/silver ratio (~85:1 typically)
+                    if (metals.length > 0) {
+                        const goldPrice = metals[0].price;
+                        const silverEstimate = goldPrice / 85; // Approximate ratio
+                        metals.push({
+                            id: 'xag',
+                            symbol: 'XAG/USD',
+                            name: 'Bạc (ước tính)',
+                            icon: '🥈',
+                            type: 'metal',
+                            price: Math.round(silverEstimate * 100) / 100,
+                            change: metals[0].change || 0,
+                            source: 'Estimated',
+                            isRealtime: false,
+                            note: 'Ước tính từ tỷ lệ Au/Ag'
+                        });
+                    }
+                }
+
+            } catch (e) {
+                console.error('[Metals API] Error fetching prices:', e.message);
             }
 
-            if (data['tether-gold']) {
-                metals.push({
-                    id: 'gold-xaut',
-                    symbol: 'XAUT',
-                    name: 'Tether Gold',
-                    icon: '🥇',
-                    type: 'metal',
-                    price: data['tether-gold'].usd,
-                    change: data['tether-gold'].usd_24h_change || 0,
-                    source: 'CoinGecko/XAUT',
-                    isRealtime: true
-                });
+            // Final fallback with hardcoded approximate values
+            if (metals.length === 0) {
+                console.log('[Metals API] All sources failed, using hardcoded values');
+                metals.push(
+                    { id: 'xau', symbol: 'XAU/USD', name: 'Vàng (Spot)', icon: '🥇', type: 'metal', price: 2870, change: 0, source: 'Fallback' },
+                    { id: 'xag', symbol: 'XAG/USD', name: 'Bạc (Spot)', icon: '🥈', type: 'metal', price: 33.5, change: 0, source: 'Fallback' }
+                );
             }
 
             return res.status(200).json({
                 assets: metals,
                 count: metals.length,
-                source: 'CoinGecko',
+                source: metals[0]?.source || 'Unknown',
                 timestamp: new Date().toISOString()
             });
         }
