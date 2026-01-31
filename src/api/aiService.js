@@ -1,8 +1,8 @@
 /**
- * AI Service - TrollLLM API Integration
+ * AI Service - TrollLLM API Integration (via Vercel Proxy)
  * Handles all AI-powered financial analysis
  * 
- * Base URL: http://api.trollllm.xyz/v1
+ * Sử dụng Vercel Serverless Function để tránh CORS/Mixed Content
  * 
  * LƯU Ý: CHỈ service này mới dùng API key
  * Lấy giá KHÔNG dùng token AI!
@@ -11,8 +11,8 @@
 export class AIService {
     constructor(apiKey) {
         this.apiKey = apiKey;
-        // TrollLLM API endpoint
-        this.baseUrl = 'http://api.trollllm.xyz/v1';
+        // Sử dụng Vercel proxy để tránh Mixed Content (HTTP->HTTPS)
+        this.baseUrl = '/api/ai'; // Vercel serverless function
         this.model = 'gpt-4o-mini'; // hoặc model khác có sẵn
     }
 
@@ -70,10 +70,10 @@ CHỈ trả về JSON hợp lệ, không có text khác.`;
     }
 
     /**
-     * Call the TrollLLM API
+     * Call the TrollLLM API via Vercel Proxy
      */
     async callAPI(systemPrompt, userPrompt) {
-        console.log('📡 Calling API:', this.baseUrl);
+        console.log('📡 Calling API via Vercel Proxy:', this.baseUrl);
         console.log('📤 Model:', this.model);
 
         const requestBody = {
@@ -88,7 +88,8 @@ CHỈ trả về JSON hợp lệ, không có text khác.`;
 
         console.log('📤 Request:', JSON.stringify(requestBody).substring(0, 200) + '...');
 
-        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        // Gọi qua Vercel proxy (không cần /chat/completions vì proxy xử lý)
+        const response = await fetch(this.baseUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

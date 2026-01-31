@@ -2,7 +2,8 @@
  * Price Service - Real-time market data
  * Lấy dữ liệu từ nhiều nguồn miễn phí
  * 
- * LƯU Ý: Lấy giá KHÔNG dùng Kimi K2 token!
+ * LƯU Ý: Lấy giá KHÔNG dùng AI token!
+ * Trên Vercel: Dùng /api/stocks proxy để tránh CORS
  */
 
 export class PriceService {
@@ -10,6 +11,11 @@ export class PriceService {
         this.cache = new Map();
         this.cacheTimeout = 60000; // 1 minute cache
         this.allVNStocks = []; // Store all available VN stocks
+
+        // Detect if running on Vercel (production)
+        this.isProduction = window.location.hostname.includes('vercel.app') ||
+            !window.location.hostname.includes('localhost');
+        this.stocksProxyUrl = '/api/stocks'; // Vercel serverless function
     }
 
     /**
@@ -20,8 +26,44 @@ export class PriceService {
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
 
+        // Use proxy in production to avoid CORS
+        if (this.isProduction) {
+            try {
+                console.log('📡 Fetching VN stocks via Vercel proxy...');
+                const response = await fetch(`${this.stocksProxyUrl}?source=ssi`, {
+                    signal: AbortSignal.timeout(15000)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.data && Array.isArray(data.data)) {
+                        const stocks = data.data.map(s => ({
+                            symbol: s.stockSymbol || s.ss,
+                            name: s.stockName || s.organ || s.ss,
+                            exchange: s.exchange || s.mc,
+                            price: (s.matchedPrice || s.mp || s.lastPrice || 0) / 1000,
+                            change: s.priceChange || s.pc || 0,
+                            changePercent: s.priceChangePercent || s.pcp || 0,
+                            volume: s.totalMatchedVol || s.tmv || 0
+                        })).filter(s => s.symbol && s.price > 0);
+
+                        this.setCache(cacheKey, stocks, 300000);
+                        this.allVNStocks = stocks;
+                        console.log(`✅ Loaded ${stocks.length} VN stocks via proxy`);
+                        return stocks;
+                    }
+                }
+            } catch (e) {
+                console.error('Proxy SSI error:', e.message);
+            }
+
+            // Fallback: use hardcoded list in production
+            console.log('⚠️ Using hardcoded VN stock list');
+            return this.getPopularVNStocks();
+        }
+
+        // Development: Direct API calls
         try {
-            // SSI API - Get all stocks from HOSE, HNX, UPCOM
             const response = await fetch(
                 'https://iboard-api.ssi.com.vn/statistics/getliststockdata?market=',
                 {
@@ -43,7 +85,7 @@ export class PriceService {
                         volume: s.totalMatchedVol || s.tmv || 0
                     })).filter(s => s.symbol && s.price > 0);
 
-                    this.setCache(cacheKey, stocks, 300000); // 5 min cache
+                    this.setCache(cacheKey, stocks, 300000);
                     this.allVNStocks = stocks;
                     console.log(`✅ Loaded ${stocks.length} VN stocks from SSI`);
                     return stocks;
@@ -53,42 +95,6 @@ export class PriceService {
             console.error('SSI list error:', e.message);
         }
 
-        // Backup: Try VCI/Fireant
-        try {
-            const response = await fetch(
-                'https://api.vietcap.com.vn/data-mt/graphql',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        query: `{ ListedStock { data { symbol shortName exchange lastPrice priceChange } } }`
-                    }),
-                    signal: AbortSignal.timeout(10000)
-                }
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.data?.ListedStock?.data) {
-                    const stocks = data.data.ListedStock.data.map(s => ({
-                        symbol: s.symbol,
-                        name: s.shortName || s.symbol,
-                        exchange: s.exchange,
-                        price: (s.lastPrice || 0) / 1000,
-                        change: s.priceChange || 0,
-                        changePercent: 0
-                    }));
-                    this.setCache(cacheKey, stocks, 300000);
-                    this.allVNStocks = stocks;
-                    console.log(`✅ Loaded ${stocks.length} VN stocks from VCI`);
-                    return stocks;
-                }
-            }
-        } catch (e) {
-            console.error('VCI list error:', e.message);
-        }
-
-        // Final fallback: hardcoded popular stocks
         console.log('⚠️ Using hardcoded VN stock list');
         return this.getPopularVNStocks();
     }
@@ -154,39 +160,75 @@ export class PriceService {
      * Get stock price by symbol (real-time from TCBS)
      */
     async getStockPrice(symbol) {
-        try {
-            const response = await fetch(
-                `https://apipubaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term?ticker=${symbol}&type=stock&resolution=D&countBack=2`,
-                {
-                    headers: { 'Accept': 'application/json' },
-                    signal: AbortSignal.timeout(8000)
-                }
-            );
+        // Use proxy in production
+        if (this.isProduction) {
+            try {
+                const response = await fetch(
+                    `${this.stocksProxyUrl}?source=tcbs&symbols=${symbol}`,
+                    { signal: AbortSignal.timeout(10000) }
+                );
 
-            if (response.ok) {
-                const data = await response.json();
-                if (data.data && data.data.length > 0) {
-                    const latest = data.data[data.data.length - 1];
-                    const prev = data.data.length > 1 ? data.data[0] : latest;
-                    const change = prev.close > 0 ? ((latest.close - prev.close) / prev.close) * 100 : 0;
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.data && data.data.length > 0) {
+                        const latest = data.data[data.data.length - 1];
+                        const prev = data.data.length > 1 ? data.data[0] : latest;
+                        const change = prev.close > 0 ? ((latest.close - prev.close) / prev.close) * 100 : 0;
 
-                    return {
-                        symbol: symbol,
-                        name: this.getVNStockName(symbol),
-                        icon: '📈',
-                        type: 'stock',
-                        price: latest.close,
-                        change: change,
-                        high: latest.high,
-                        low: latest.low,
-                        open: latest.open,
-                        volume: latest.volume,
-                        isRealtime: true
-                    };
+                        return {
+                            symbol: symbol,
+                            name: this.getVNStockName(symbol),
+                            icon: '📈',
+                            type: 'stock',
+                            price: latest.close,
+                            change: change,
+                            high: latest.high,
+                            low: latest.low,
+                            open: latest.open,
+                            volume: latest.volume,
+                            isRealtime: true
+                        };
+                    }
                 }
+            } catch (e) {
+                console.error(`Proxy TCBS ${symbol} error:`, e.message);
             }
-        } catch (e) {
-            console.error(`TCBS ${symbol} error:`, e.message);
+        } else {
+            // Development: direct API call
+            try {
+                const response = await fetch(
+                    `https://apipubaws.tcbs.com.vn/stock-insight/v2/stock/bars-long-term?ticker=${symbol}&type=stock&resolution=D&countBack=2`,
+                    {
+                        headers: { 'Accept': 'application/json' },
+                        signal: AbortSignal.timeout(8000)
+                    }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.data && data.data.length > 0) {
+                        const latest = data.data[data.data.length - 1];
+                        const prev = data.data.length > 1 ? data.data[0] : latest;
+                        const change = prev.close > 0 ? ((latest.close - prev.close) / prev.close) * 100 : 0;
+
+                        return {
+                            symbol: symbol,
+                            name: this.getVNStockName(symbol),
+                            icon: '📈',
+                            type: 'stock',
+                            price: latest.close,
+                            change: change,
+                            high: latest.high,
+                            low: latest.low,
+                            open: latest.open,
+                            volume: latest.volume,
+                            isRealtime: true
+                        };
+                    }
+                }
+            } catch (e) {
+                console.error(`TCBS ${symbol} error:`, e.message);
+            }
         }
 
         // Fallback to cached data
