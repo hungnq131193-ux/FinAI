@@ -155,22 +155,25 @@ export class PriceService {
                 if (response.ok) {
                     const data = await response.json();
                     if (data.price) {
-                        console.log(`✅ ${symbol}: ${data.price} (${data.change >= 0 ? '+' : ''}${data.change}%)`);
+                        // CafeF returns: price (nghìn), change (chênh lệch giá), changePercent
+                        const changePercent = data.changePercent || 0;
+                        console.log(`✅ ${symbol}: ${data.price}k (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%) [CafeF]`);
                         return {
                             symbol: symbol,
                             name: this.getVNStockName(symbol),
                             icon: '📈',
                             type: 'stock',
                             price: data.price,
-                            change: data.change,
+                            change: changePercent, // Use percent change for consistency
+                            priceChange: data.change, // Raw price change
                             high: data.high,
                             low: data.low,
-                            open: data.open,
+                            open: data.open || data.refPrice,
                             volume: data.volume,
-                            prevClose: data.prevClose,
-                            changeWeek: data.changeWeek,
+                            refPrice: data.refPrice,
                             isRealtime: true,
-                            source: data.source,
+                            source: 'CafeF',
+                            time: data.time,
                             timestamp: data.timestamp
                         };
                     }
