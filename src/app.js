@@ -212,7 +212,7 @@ export class App {
     const assets = this.state.filteredAssets || [];
     if (assets.length === 0) return '<div class="empty-state">Không có dữ liệu</div>';
 
-    return assets.slice(0, 50).map(asset => `
+    return assets.slice(0, 150).map(asset => `
       <div class="asset-card" data-symbol="${asset.symbol}">
         <div class="asset-header">
           <span class="asset-icon">${asset.icon || '📊'}</span>
@@ -788,7 +788,7 @@ Chỉ trả về các tài sản đáng MUA nhất, không liệt kê tất cả
 
       this.state.totalStocksAvailable = allPrices.totalStocksAvailable || 0;
 
-      this.showToast(`Đã tải ${this.state.assets.length} tài sản`, 'success');
+      // Silently loaded - no toast needed since data is background loaded
     } catch (error) {
       console.error('Load error:', error);
       this.showToast('Lỗi tải dữ liệu', 'error');
