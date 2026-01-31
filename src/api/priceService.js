@@ -457,59 +457,11 @@ export class PriceService {
             return prices;
         } catch (error) {
             console.error('Crypto error:', error.message);
-            return this.getFallbackCryptoPrices();
         }
     }
 
-    /**
-     * Get metal prices
-     */
-    async getMetalPrices() {
-        const cacheKey = 'metal_prices';
-        const cached = this.getFromCache(cacheKey);
-        if (cached) return cached;
-
-        try {
-            const response = await fetch(
-                'https://api.coingecko.com/api/v3/simple/price?ids=pax-gold,tether-gold&vs_currencies=usd&include_24hr_change=true',
-                { signal: AbortSignal.timeout(10000) }
-            );
-
-            if (!response.ok) throw new Error('Metal API error');
-
-            const data = await response.json();
-            const goldPrice = data['pax-gold']?.usd || data['tether-gold']?.usd || 2750;
-            const goldChange = data['pax-gold']?.usd_24h_change || 0;
-
-            const prices = [
-                {
-                    symbol: 'XAU',
-                    name: 'Vàng (oz)',
-                    icon: '🥇',
-                    type: 'gold',
-                    price: goldPrice,
-                    change: goldChange,
-                    isRealtime: true
-                },
-                {
-                    symbol: 'XAG',
-                    name: 'Bạc (oz)',
-                    icon: '🥈',
-                    type: 'silver',
-                    price: goldPrice / 88,
-                    change: goldChange * 0.8,
-                    isRealtime: true
-                }
-            ];
-
-            this.setCache(cacheKey, prices);
-            console.log('✅ Metals: PAXG from CoinGecko');
-            return prices;
-        } catch (error) {
-            console.error('Metal error:', error.message);
-            return this.getFallbackMetalPrices();
-        }
-    }
+    // NOTE: getMetalPrices() is defined at the top of the class (lines 53-87)
+    // It uses the /api/crypto?type=metals proxy for accurate XAU/USD and XAG/USD prices
 
     /**
      * Get all market data
