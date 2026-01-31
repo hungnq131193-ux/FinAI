@@ -410,55 +410,7 @@ export class PriceService {
         return results;
     }
 
-    /**
-     * Get cryptocurrency prices
-     */
-    async getCryptoPrices() {
-        const cacheKey = 'crypto_prices';
-        const cached = this.getFromCache(cacheKey);
-        if (cached) return cached;
-
-        try {
-            const ids = 'bitcoin,ethereum,binancecoin,ripple,solana,cardano,dogecoin,polkadot,avalanche-2,chainlink,polygon,toncoin';
-            const response = await fetch(
-                `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
-                { signal: AbortSignal.timeout(10000) }
-            );
-
-            if (!response.ok) throw new Error('CoinGecko error');
-
-            const data = await response.json();
-
-            const symbolMap = {
-                bitcoin: { symbol: 'BTC', name: 'Bitcoin', icon: '₿' },
-                ethereum: { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' },
-                binancecoin: { symbol: 'BNB', name: 'BNB', icon: '◈' },
-                ripple: { symbol: 'XRP', name: 'Ripple', icon: '✕' },
-                solana: { symbol: 'SOL', name: 'Solana', icon: '◎' },
-                cardano: { symbol: 'ADA', name: 'Cardano', icon: '₳' },
-                dogecoin: { symbol: 'DOGE', name: 'Dogecoin', icon: '🐕' },
-                polkadot: { symbol: 'DOT', name: 'Polkadot', icon: '●' },
-                'avalanche-2': { symbol: 'AVAX', name: 'Avalanche', icon: '🔺' },
-                chainlink: { symbol: 'LINK', name: 'Chainlink', icon: '⬡' },
-                polygon: { symbol: 'MATIC', name: 'Polygon', icon: '⬟' },
-                toncoin: { symbol: 'TON', name: 'Toncoin', icon: '💎' }
-            };
-
-            const prices = Object.entries(data).map(([id, info]) => ({
-                ...symbolMap[id],
-                type: 'crypto',
-                price: info.usd,
-                change: info.usd_24h_change || 0,
-                isRealtime: true
-            }));
-
-            this.setCache(cacheKey, prices);
-            console.log(`✅ Crypto: ${prices.length} coins from CoinGecko`);
-            return prices;
-        } catch (error) {
-            console.error('Crypto error:', error.message);
-        }
-    }
+    // NOTE: Crypto prices removed - app focuses on VN stocks and metals only
 
     // NOTE: getMetalPrices() is defined at the top of the class (lines 53-87)
     // It uses the /api/crypto?type=metals proxy for accurate XAU/USD and XAG/USD prices
@@ -610,9 +562,10 @@ export class PriceService {
     }
 
     getFallbackMetalPrices() {
+        // Fallback with current approximate values (Jan 2026) - must match API format
         return [
-            { symbol: 'XAU', name: 'Vàng (oz)', icon: '🥇', type: 'gold', price: 2750, change: 0 },
-            { symbol: 'XAG', name: 'Bạc (oz)', icon: '🥈', type: 'silver', price: 31, change: 0 }
+            { id: 'xau', symbol: 'XAU/USD', name: 'Vàng (Spot Gold)', icon: '🥇', type: 'metal', price: 4900, change: 0, source: 'Fallback' },
+            { id: 'xag', symbol: 'XAG/USD', name: 'Bạc (Spot Silver)', icon: '🥈', type: 'metal', price: 85, change: 0, source: 'Fallback' }
         ];
     }
 }
