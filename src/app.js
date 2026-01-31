@@ -29,7 +29,9 @@ export class App {
       isLoading: false,
       isScanning: false,
       totalStocksAvailable: 0,
-      activeTab: 'market' // market, search
+      activeTab: 'market', // market, search
+      activeFilter: 'all', // all, stock, crypto, metal
+      filteredAssets: [] // Assets filtered by category
     };
   }
 
@@ -158,23 +160,71 @@ export class App {
   }
 
   renderAssetsSection() {
+    // Assets are now shown through search filters, not on homepage
+    const activeFilter = this.state.activeFilter || 'all';
+    const showFilteredAssets = activeFilter !== 'all' && this.state.filteredAssets && this.state.filteredAssets.length > 0;
+
+    if (!showFilteredAssets) {
+      return `
+        <section class="section" id="assets-section">
+          <div class="section-header">
+            <h2 class="section-title">
+              <span class="section-title-icon">💹</span>
+              Thị Trường
+            </h2>
+            <span class="section-subtitle">Chọn tab để xem danh sách</span>
+          </div>
+          <div class="assets-grid empty-state" id="assets-grid">
+            <div class="empty-hint">
+              <span class="empty-icon">👆</span>
+              <p>Nhấn vào <strong>Cổ phiếu</strong>, <strong>Crypto</strong> hoặc <strong>Vàng/Bạc</strong> để xem danh sách</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    const filterLabels = { 'stock': '📈 Cổ Phiếu VN', 'crypto': '₿ Crypto', 'metal': '🥇 Vàng/Kim loại' };
+
     return `
       <section class="section" id="assets-section">
         <div class="section-header">
           <h2 class="section-title">
             <span class="section-title-icon">💹</span>
-            Thị Trường
+            ${filterLabels[activeFilter] || 'Thị Trường'}
           </h2>
           <span class="section-subtitle" id="data-status">
-            ${this.state.isLoading ? 'Đang tải...' :
-        this.state.assets.some(a => a.isRealtime) ? '🟢 Real-time' : '⚪ Cached'}
+            ${this.state.filteredAssets.length} tài sản • 
+            ${this.state.filteredAssets.some(a => a.isRealtime) ? '🟢 Real-time' : '⚪ Cached'}
           </span>
         </div>
         <div class="assets-grid" id="assets-grid">
-          ${this.state.isLoading ? this.renderAssetSkeletons() : this.renderAssetCards()}
+          ${this.state.isLoading ? this.renderAssetSkeletons() : this.renderFilteredAssetCards()}
         </div>
       </section>
     `;
+  }
+
+  renderFilteredAssetCards() {
+    const assets = this.state.filteredAssets || [];
+    if (assets.length === 0) return '<div class="empty-state">Không có dữ liệu</div>';
+
+    return assets.slice(0, 50).map(asset => `
+      <div class="asset-card" data-symbol="${asset.symbol}">
+        <div class="asset-header">
+          <span class="asset-icon">${asset.icon || '📊'}</span>
+          <div class="asset-info">
+            <span class="asset-symbol">${asset.symbol}</span>
+            <span class="asset-name">${asset.name || asset.symbol}</span>
+          </div>
+        </div>
+        <div class="asset-price">${this.formatPrice(asset.price, asset.type)}</div>
+        <div class="asset-change ${(asset.change || 0) >= 0 ? 'positive' : 'negative'}">
+          ${(asset.change || 0) >= 0 ? '▲' : '▼'} ${Math.abs(asset.change || 0).toFixed(2)}%
+        </div>
+        ${asset.isRealtime ? '<span class="realtime-badge">LIVE</span>' : ''}
+      </div>
+    `).join('');
   }
 
   renderAssetSkeletons() {
@@ -407,14 +457,53 @@ export class App {
       this.updateSearchBar();
     });
 
-    // Search filters
+    // Search filters - clicking loads assets by type
     document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
+
+        const filter = e.target.dataset.filter;
+        this.state.activeFilter = filter;
+
+        // If searching, filter search results
         if (this.state.searchQuery) {
-          this.handleSearch(this.state.searchQuery, e.target.dataset.filter);
+          this.handleSearch(this.state.searchQuery, filter);
+          return;
         }
+
+        // Otherwise, load all assets of this type
+        if (filter === 'all') {
+          this.state.filteredAssets = [];
+          this.updateAssetsGrid();
+          return;
+        }
+
+        // Load assets by type
+        this.state.isLoading = true;
+        this.updateAssetsGrid();
+
+        try {
+          if (filter === 'stock') {
+            // Load VN stocks from CafeF
+            const stocks = await this.priceService.getAllVNStockSymbols();
+            this.state.filteredAssets = stocks.map(s => ({ ...s, icon: '📈', type: 'stock' }));
+          } else if (filter === 'crypto') {
+            // Load crypto from CoinGecko
+            const cryptos = await this.priceService.getCryptoPrices();
+            this.state.filteredAssets = cryptos.filter(c => c.type === 'crypto');
+          } else if (filter === 'metal') {
+            // Load metals from CoinGecko
+            const assets = await this.priceService.getCryptoPrices();
+            this.state.filteredAssets = assets.filter(a => a.type === 'metal');
+          }
+        } catch (e) {
+          console.error('Error loading assets:', e);
+          this.state.filteredAssets = [];
+        }
+
+        this.state.isLoading = false;
+        this.updateAssetsGrid();
       });
     });
 
@@ -722,16 +811,19 @@ Chỉ trả về các tài sản đáng MUA nhất, không liệt kê tất cả
   }
 
   updateAssetsGrid() {
-    const grid = document.getElementById('assets-grid');
-    const status = document.getElementById('data-status');
+    const section = document.getElementById('assets-section');
 
-    if (grid) {
-      grid.innerHTML = this.state.isLoading ? this.renderAssetSkeletons() : this.renderAssetCards();
-    }
+    if (section) {
+      // Re-render entire section to handle empty state vs filtered state
+      const temp = document.createElement('div');
+      temp.innerHTML = this.renderAssetsSection();
+      section.replaceWith(temp.firstElementChild);
 
-    if (status) {
-      status.textContent = this.state.isLoading ? 'Đang tải...' :
-        this.state.assets.some(a => a.isRealtime) ? '🟢 Real-time' : '⚪ Cached';
+      // Rebind click events for asset cards
+      document.getElementById('assets-grid')?.addEventListener('click', (e) => {
+        const card = e.target.closest('.asset-card');
+        if (card) this.selectAsset(card.dataset.symbol);
+      });
     }
   }
 

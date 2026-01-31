@@ -1450,3 +1450,68 @@ body {
 .signal-reason strong {
   color: var(--text-primary);
 }
+
+/* ========================================
+   Assets Grid and Empty State
+   ======================================== */
+
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.assets-grid.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.empty-hint {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: var(--spacing-xl);
+}
+
+.empty-hint .empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.6;
+}
+
+.empty-hint p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.empty-hint strong {
+  color: var(--accent-crypto);
+}
+
+/* Realtime badge */
+.realtime-badge {
+  position: absolute;
+  top: var(--spacing-xs);
+  right: var(--spacing-xs);
+  background: var(--accent-buy);
+  color: var(--bg-primary);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Asset card positioning */
+.asset-card {
+  position: relative;
+}
+
+/* Filter button active state */
+.filter-btn.active {
+  background: var(--accent-crypto);
+  color: white;
+}
